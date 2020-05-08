@@ -133,6 +133,7 @@ int main() {
 		ALLEGRO_FONT* font10 = al_load_font("Resources/minecraft.ttf", 10, 0);
 		ALLEGRO_FONT* font7 = al_load_font("Resources/arial.ttf", 7, 0);
 		ALLEGRO_FONT* font40 = al_load_font("Resources/minecraft.ttf", 40, 0);
+		ALLEGRO_FONT* titleFont = al_load_font("Resources/minecraft.ttf", 60, 0);
 
 		ALLEGRO_BITMAP* playerImage = al_load_bitmap("Resources/ship.png");
 		ALLEGRO_BITMAP* explosionImage = al_load_bitmap("Resources/explosion.png");
@@ -201,7 +202,7 @@ int main() {
 				}
 				if (ev.type == ALLEGRO_EVENT_TIMER) {
 					redraw = true;
-
+					
 					if (connected) {
 						UpdateChat(chat);
 						player.Update(particles, effects, peer, explosionImage, flameImage, soundManager);
@@ -364,7 +365,7 @@ int main() {
 						}
 					}
 				}
-				else if (!connected && gameState >= 0) {
+				else if (!connected && gameState >= 0 && !mainMenu) {
 					connectTimer--;
 					if (connectTimer <= 0) {
 						connectTimer = connectTimerStart;
@@ -720,88 +721,94 @@ int main() {
 				redraw = false;
 				al_clear_to_color(al_map_rgb(0, 0, 0));
 
-				if (gameState >= 0) {
-					if (connected) {
-						for (auto particle : particles)
-							particle.Draw();
-						for (auto asteroid : asteroids)
-							asteroid.Draw(showInfo);
-						for (auto item : items)
-							item.Draw(itemImage, showInfo);
-						for (auto bullet : bullets)
-							bullet.Draw(display, showInfo);
-						for (auto player : players)
-							player.Draw(display, font7, font18, showInfo);
-						player.Draw(display, font18, showInfo);
-						for (auto effect : effects)
-							effect.Draw(showInfo);
+				for (auto particle : particles)
+					particle.Draw();
+
+				if (!mainMenu) {
+					if (gameState >= 0) {
+						if (connected) {
+							for (auto asteroid : asteroids)
+								asteroid.Draw(showInfo);
+							for (auto item : items)
+								item.Draw(itemImage, showInfo);
+							for (auto bullet : bullets)
+								bullet.Draw(display, showInfo);
+							for (auto player : players)
+								player.Draw(display, font7, font18, showInfo);
+							player.Draw(display, font18, showInfo);
+							for (auto effect : effects)
+								effect.Draw(showInfo);
 
 
-						al_draw_filled_rectangle(0, 0, 100, 5, al_map_rgb(255, 0, 0));
-						al_draw_filled_rectangle(0, 0, 100 * (player.GetHealth() / player.GetMaxHealth()), 5, al_map_rgb(0, 255, 0));
+							al_draw_filled_rectangle(0, 0, 100, 5, al_map_rgb(255, 0, 0));
+							al_draw_filled_rectangle(0, 0, 100 * (player.GetHealth() / player.GetMaxHealth()), 5, al_map_rgb(0, 255, 0));
 
-						al_draw_filled_rectangle(screenWidth, 0, screenWidth - 100 * (1), 5, al_map_rgb(255, 0, 170));
-						al_draw_filled_rectangle(screenWidth, 0, screenWidth - 100 * (player.GetChargeNum() / player.GetChargeNumMax()), 5, al_map_rgb(0, 0, 255));
+							al_draw_filled_rectangle(screenWidth, 0, screenWidth - 100 * (1), 5, al_map_rgb(255, 0, 170));
+							al_draw_filled_rectangle(screenWidth, 0, screenWidth - 100 * (player.GetChargeNum() / player.GetChargeNumMax()), 5, al_map_rgb(0, 0, 255));
 
-						if (player.GetReady() && startTime < 204) {
-							if (gameState == 0) {
-								al_draw_textf(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, "%i", (startTime - 50) / 50);
+							if (player.GetReady() && startTime < 204) {
+								if (gameState == 0) {
+									al_draw_textf(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, "%i", (startTime - 50) / 50);
+								}
+								else {
+									al_draw_text(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, "GO");
+								}
 							}
-							else {
-								al_draw_text(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, "GO");
+							if (player.GetTyping()) {
+								al_draw_filled_rectangle(5, screenHeight - 30, screenWidth / 2, screenHeight - 10, al_map_rgba(50, 50, 50, 100));
+								al_draw_textf(font18, al_map_rgb(255, 255, 255), 7, screenHeight - 30, NULL, "%s", player.GetChatMessage().c_str());
 							}
-						}
-						if (player.GetTyping()) {
-							al_draw_filled_rectangle(5, screenHeight - 30, screenWidth / 2, screenHeight - 10, al_map_rgba(50, 50, 50, 100));
-							al_draw_textf(font18, al_map_rgb(255, 255, 255), 7, screenHeight - 30, NULL, "%s", player.GetChatMessage().c_str());
-						}
-						DrawChat(chat, font18, player);
+							DrawChat(chat, font18, player);
 
-						if (player.GetKey(TAB)) {
-							vector<int> lengths;
-							vector<string> names;
-							names.push_back("Wins");
-							names.push_back(player.GetName() + ": " + to_string(player.GetWins()));
+							if (player.GetKey(TAB)) {
+								vector<int> lengths;
+								vector<string> names;
+								names.push_back("Wins");
+								names.push_back(player.GetName() + ": " + to_string(player.GetWins()));
 
-							for (auto otherPlayer : players)
-								names.push_back(otherPlayer.GetName() + ": " + to_string(otherPlayer.GetWins()));
+								for (auto otherPlayer : players)
+									names.push_back(otherPlayer.GetName() + ": " + to_string(otherPlayer.GetWins()));
 
-							for (auto name : names) {
-								lengths.push_back(al_get_text_width(font10, name.c_str()) / 2 + 10);
+								for (auto name : names) {
+									lengths.push_back(al_get_text_width(font10, name.c_str()) / 2 + 10);
+								}
+
+								int maxLength = 0;
+								for (auto length : lengths) {
+									if (length > maxLength)
+										maxLength = length;
+								}
+
+								for (unsigned i = 0; i < names.size(); i++) {
+									al_draw_filled_rectangle(screenWidth / 2 - maxLength, i * 14, screenWidth / 2 + maxLength, i * 14 + 14, al_map_rgb(75, 75, 75));
+									al_draw_rectangle(screenWidth / 2 - maxLength, i * 14, screenWidth / 2 + maxLength, i * 14 + 14, al_map_rgb(25, 25, 25), 2);
+									al_draw_text(font10, al_map_rgb(255, 255, 255), screenWidth / 2, i * 14 + 2, ALLEGRO_ALIGN_CENTER, names[i].c_str());
+								}
 							}
 
-							int maxLength = 0;
-							for (auto length : lengths) {
-								if (length > maxLength)
-									maxLength = length;
+							if (!player.GetReady()) {
+								al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTER, "Press Space To Start");
 							}
-
-							for (unsigned i = 0; i < names.size(); i++) {
-								al_draw_filled_rectangle(screenWidth / 2 - maxLength, i * 14, screenWidth / 2 + maxLength, i * 14 + 14, al_map_rgb(75, 75, 75));
-								al_draw_rectangle(screenWidth / 2 - maxLength, i * 14, screenWidth / 2 + maxLength, i * 14 + 14, al_map_rgb(25, 25, 25), 2);
-								al_draw_text(font10, al_map_rgb(255, 255, 255), screenWidth / 2, i * 14 + 2, ALLEGRO_ALIGN_CENTER, names[i].c_str());
-							}
-						}
-
-						if (!player.GetReady()) {
-							al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTER, "Press Space To Start");
 						}
 					}
-				}
-				else if (gameState == -1) {
-					al_draw_text(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, kickMessage.c_str());
-				}
+					else if (gameState == -1) {
+						al_draw_text(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, kickMessage.c_str());
+					}
 
-				if (!connected && gameState >= 0) {
-					al_draw_textf(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 50, ALLEGRO_ALIGN_CENTRE, "Attempting to connect to server %s:%i", IP, loadPort);
-					al_draw_textf(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 30, ALLEGRO_ALIGN_CENTRE, "Time until next attempt: %i", connectTimer / 100);
-					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTRE, "Change IP in config.txt");
+					if (!connected && gameState >= 0) {
+						al_draw_textf(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 50, ALLEGRO_ALIGN_CENTRE, "Attempting to connect to server %s:%i", IP, loadPort);
+						al_draw_textf(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 30, ALLEGRO_ALIGN_CENTRE, "Time until next attempt: %i", connectTimer / 100);
+						al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTRE, "Change IP in config.txt");
+					}
 				}
-
-				/*if (mainMenu) {
-					al_draw_text(font40, al_map_rgb(255, 255, 255), screenWidth / 2, 100, ALLEGRO_ALIGN_CENTRE, "Asteroid Arena");
-					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTRE, "Connect to server");
-				}*/
+				else {
+					al_draw_text(titleFont, al_map_rgb(255, 255, 255), screenWidth / 2, 100, ALLEGRO_ALIGN_CENTRE, "Asteroid Arena");
+					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTRE, "Connect to Server");
+					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 + 30 * 1, ALLEGRO_ALIGN_CENTRE, "Connect to Local Server");
+					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 + 30 * 2, ALLEGRO_ALIGN_CENTRE, "Edit Config");
+					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 + 30 * 3, ALLEGRO_ALIGN_CENTRE, "Controls");
+					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 + 30 * 4, ALLEGRO_ALIGN_CENTRE, "Exit");
+				}
 
 				al_flip_display();
 			}
