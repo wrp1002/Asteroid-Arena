@@ -19,36 +19,27 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ClientMain.cpp" />
-    <ClCompile Include="client_asteroid.cpp" />
-    <ClCompile Include="client_bullet.cpp" />
-    <ClCompile Include="client_effect.cpp" />
-    <ClCompile Include="client_item.cpp" />
-    <ClCompile Include="client_other_player.cpp" />
-    <ClCompile Include="client_particle.cpp" />
-    <ClCompile Include="client_player.cpp" />
-    <ClCompile Include="SoundManager.cpp" />
+    <ClCompile Include="server_asteroid.cpp" />
+    <ClCompile Include="server_bullet.cpp" />
+    <ClCompile Include="server_item.cpp" />
+    <ClCompile Include="Server_Main.cpp" />
+    <ClCompile Include="server_player.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="server_asteroid.h" />
+    <ClInclude Include="server_bullet.h" />
+    <ClInclude Include="server_globals.h" />
+    <ClInclude Include="server_item.h" />
+    <ClInclude Include="server_player.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="client_asteroid.h" />
-    <ClInclude Include="client_bullet.h" />
-    <ClInclude Include="client_effect.h" />
-    <ClInclude Include="client_globals.h" />
-    <ClInclude Include="client_item.h" />
-    <ClInclude Include="client_other_player.h" />
-    <ClInclude Include="client_particle.h" />
-    <ClInclude Include="client_player.h" />
-    <ClInclude Include="SoundManager.h" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{C7786DEC-E3CD-4210-A61F-35EF1E2BBDD7}</ProjectGuid>
-    <RootNamespace>MultiplayerAsteroids</RootNamespace>
+    <ProjectGuid>{1FDB1C83-D02D-47A0-8107-AE1F3F4D4E07}</ProjectGuid>
+    <RootNamespace>AsteroidsServer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>Asteroids Client</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -97,47 +88,15 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <Allegro_AddonImage>true</Allegro_AddonImage>
-    <Allegro_AddonTTF>true</Allegro_AddonTTF>
-    <Allegro_AddonPrimitives>true</Allegro_AddonPrimitives>
-    <Allegro_AddonFont>true</Allegro_AddonFont>
-    <Allegro_AddonDialog>true</Allegro_AddonDialog>
-    <Allegro_LibraryType>DynamicDebug</Allegro_LibraryType>
-    <Allegro_AddonAudio>true</Allegro_AddonAudio>
-    <Allegro_AddonAcodec>true</Allegro_AddonAcodec>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <Allegro_AddonImage>true</Allegro_AddonImage>
-    <Allegro_AddonTTF>true</Allegro_AddonTTF>
-    <Allegro_AddonPrimitives>true</Allegro_AddonPrimitives>
-    <Allegro_AddonDialog>true</Allegro_AddonDialog>
-    <Allegro_AddonFont>true</Allegro_AddonFont>
-    <Allegro_LibraryType>DynamicDebug</Allegro_LibraryType>
-    <Allegro_AddonAudio>true</Allegro_AddonAudio>
-    <Allegro_AddonAcodec>true</Allegro_AddonAcodec>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <Allegro_AddonImage>true</Allegro_AddonImage>
-    <Allegro_AddonTTF>true</Allegro_AddonTTF>
-    <Allegro_AddonPrimitives>true</Allegro_AddonPrimitives>
-    <Allegro_AddonDialog>true</Allegro_AddonDialog>
-    <Allegro_AddonFont>true</Allegro_AddonFont>
-    <Allegro_LibraryType>StaticMonolithRelease</Allegro_LibraryType>
-    <Allegro_AddonAudio>true</Allegro_AddonAudio>
-    <Allegro_AddonAcodec>true</Allegro_AddonAcodec>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <Allegro_AddonImage>true</Allegro_AddonImage>
-    <Allegro_AddonTTF>true</Allegro_AddonTTF>
-    <Allegro_AddonPrimitives>true</Allegro_AddonPrimitives>
-    <Allegro_AddonDialog>true</Allegro_AddonDialog>
-    <Allegro_AddonFont>true</Allegro_AddonFont>
-    <Allegro_LibraryType>StaticMonolithRelease</Allegro_LibraryType>
-    <Allegro_AddonAudio>true</Allegro_AddonAudio>
-    <Allegro_AddonAcodec>true</Allegro_AddonAcodec>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -146,7 +105,6 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\Google Drive\Programming\libs\enet-1.3.15\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -163,7 +121,6 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\Google Drive\Programming\libs\enet-1.3.15\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -182,8 +139,6 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\Google Drive\Programming\libs\enet-1.3.15\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -204,8 +159,6 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\Google Drive\Programming\libs\enet-1.3.15\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

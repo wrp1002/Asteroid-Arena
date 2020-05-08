@@ -11,7 +11,9 @@
 #include <allegro5\allegro_font.h>
 #include <allegro5\allegro_ttf.h>
 #include <allegro5\allegro_native_dialog.h>
-#include <enet\enet.h>
+#include <allegro5/allegro_audio.h>
+#include <allegro5/allegro_acodec.h>
+#include <enet/enet.h>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -27,6 +29,7 @@
 #include "client_effect.h"
 #include "client_asteroid.h"
 #include "client_item.h"
+#include "SoundManager.h"
 
 using namespace std;
 
@@ -43,17 +46,17 @@ struct ChatMessage
 
 bool restartGame = true;
 
-void ResetGame(client_player &player, int &gameState, ENetPeer *peer, vector<client_other_player> &players, vector<client_bullet> &bullets, vector<client_particle> &particles, vector<client_effect> &effects, vector<client_asteroid> &asteroids, vector<client_item> &items);
-void CleanUp(vector<client_particle> &particles, vector<client_effect> &effects);
+void ResetGame(client_player& player, int& gameState, ENetPeer* peer, vector<client_other_player>& players, vector<client_bullet>& bullets, vector<client_particle>& particles, vector<client_effect>& effects, vector<client_asteroid>& asteroids, vector<client_item>& items);
+void CleanUp(vector<client_particle>& particles, vector<client_effect>& effects);
 
-void UpdateEffects(vector<client_effect> &effects, vector<client_particle> &particles, ALLEGRO_BITMAP *explosionImage, ALLEGRO_BITMAP *flameImage);
+void UpdateEffects(vector<client_effect>& effects, vector<client_particle>& particles, ALLEGRO_BITMAP* explosionImage, ALLEGRO_BITMAP* flameImage, SoundManager& soundManager);
 
-void InitStars(vector<client_particle> &particles);
+void InitStars(vector<client_particle>& particles);
 
-void UpdateChat(vector<ChatMessage> &chat);
-void DrawChat(vector<ChatMessage> &chat, ALLEGRO_FONT *font18, client_player player);
+void UpdateChat(vector<ChatMessage>& chat);
+void DrawChat(vector<ChatMessage>& chat, ALLEGRO_FONT* font18, client_player player);
 
-string LoadConfig(int &loadPort);
+string LoadConfig(int& loadPort);
 
 float GetAngle(float x1, float y1, float x2, float y2);
 float GetDistance(float x1, float y1, float x2, float y2);
@@ -68,12 +71,13 @@ int main() {
 		bool connected = false;
 		bool showInfo = false;
 		bool kicked = false;
+		bool mainMenu = true;
 
 		int connectTimerStart = 600;
 		int connectTimer = 100;
 		int checkTimerStart = 1000;
 		int checkTimer = checkTimerStart;
-		
+
 		float FPS = 60;
 		int gameState = 0;
 		int startTime = 400;
@@ -83,9 +87,9 @@ int main() {
 		string initName;
 		string kickMessage;
 
-		const char *IP = LoadIP.c_str();
+		const char* IP = LoadIP.c_str();
 		cout << IP << endl;
-		
+
 		cout << "Enter Name: ";
 		cin >> initName;
 
@@ -107,30 +111,40 @@ int main() {
 		al_init_primitives_addon();
 		al_init_native_dialog_addon();
 		al_init_image_addon();
+		al_init_acodec_addon();
+		
+		if (!al_install_audio()) {
+			printf("Could not install audio!\n");
+			system("pause");
+		}
 		al_install_keyboard();
 		enet_initialize();
+		if (!al_reserve_samples(20)) {
+			printf("Could not reserve samples!\n");
+			system("pause");
+		}
 
-		ALLEGRO_DISPLAY *display = al_create_display(screenWidth, screenHeight);
+		ALLEGRO_DISPLAY* display = al_create_display(screenWidth, screenHeight);
 		al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
 
-		ALLEGRO_EVENT_QUEUE *event_queue = al_create_event_queue();
-		ALLEGRO_TIMER *timer = al_create_timer(1.0 / FPS);
-		ALLEGRO_FONT *font18 = al_load_font("Resources/minecraft.ttf", 18, 0);
-		ALLEGRO_FONT *font10 = al_load_font("Resources/minecraft.ttf", 10, 0);
-		ALLEGRO_FONT *font7 = al_load_font("Resources/arial.ttf", 7, 0);
-		ALLEGRO_FONT *font40 = al_load_font("Resources/minecraft.ttf", 40, 0);
+		ALLEGRO_EVENT_QUEUE* event_queue = al_create_event_queue();
+		ALLEGRO_TIMER* timer = al_create_timer(1.0 / FPS);
+		ALLEGRO_FONT* font18 = al_load_font("Resources/minecraft.ttf", 18, 0);
+		ALLEGRO_FONT* font10 = al_load_font("Resources/minecraft.ttf", 10, 0);
+		ALLEGRO_FONT* font7 = al_load_font("Resources/arial.ttf", 7, 0);
+		ALLEGRO_FONT* font40 = al_load_font("Resources/minecraft.ttf", 40, 0);
 
-		ALLEGRO_BITMAP *playerImage = al_load_bitmap("Resources/ship.png");
-		ALLEGRO_BITMAP *explosionImage = al_load_bitmap("Resources/explosion.png");
-		ALLEGRO_BITMAP *flameImage = al_load_bitmap("Resources/flame.png");
-		ALLEGRO_BITMAP *bigAsteroidImage = al_load_bitmap("Resources/bigAsteroid.png");
-		ALLEGRO_BITMAP *smallAsteroidImage = al_load_bitmap("Resources/smallAsteroid.png");
-		ALLEGRO_BITMAP *bigAsteroidsExplosion = al_load_bitmap("Resources/asteroidExplosion.png");
-		ALLEGRO_BITMAP *smallAsteroidsExplosion = al_load_bitmap("Resources/smallAsteroidExplosion.png");
-		ALLEGRO_BITMAP *itemImage = al_load_bitmap("Resources/Items.png");
-		ALLEGRO_BITMAP *shieldExplosionImage = al_load_bitmap("Resources/shield explosion.png");
+		ALLEGRO_BITMAP* playerImage = al_load_bitmap("Resources/ship.png");
+		ALLEGRO_BITMAP* explosionImage = al_load_bitmap("Resources/explosion.png");
+		ALLEGRO_BITMAP* flameImage = al_load_bitmap("Resources/flame.png");
+		ALLEGRO_BITMAP* bigAsteroidImage = al_load_bitmap("Resources/bigAsteroid.png");
+		ALLEGRO_BITMAP* smallAsteroidImage = al_load_bitmap("Resources/smallAsteroid.png");
+		ALLEGRO_BITMAP* bigAsteroidsExplosion = al_load_bitmap("Resources/asteroidExplosion.png");
+		ALLEGRO_BITMAP* smallAsteroidsExplosion = al_load_bitmap("Resources/smallAsteroidExplosion.png");
+		ALLEGRO_BITMAP* itemImage = al_load_bitmap("Resources/Items.png");
+		ALLEGRO_BITMAP* shieldExplosionImage = al_load_bitmap("Resources/shield explosion.png");
 
-		ALLEGRO_BITMAP *bulletImages[4] = { al_load_bitmap("Resources/bullet.png"),
+		ALLEGRO_BITMAP* bulletImages[4] = { al_load_bitmap("Resources/bullet.png"),
 											al_load_bitmap("Resources/small bullet.png"),
 											al_load_bitmap("Resources/triple bullet.png"),
 											al_load_bitmap("Resources/magnet bullet.png") };
@@ -140,10 +154,16 @@ int main() {
 		al_register_event_source(event_queue, al_get_keyboard_event_source());
 
 		client_player player(rand() % screenWidth, rand() % screenHeight, 10, initName, playerImage);
+		SoundManager soundManager = SoundManager();
+		
+		/*for (auto file : soundManager.GetNames()) {
+			soundManager.PlaySample(file, 1);
+			Sleep(100);
+		}*/
 
 		ENetAddress address;
-		ENetPeer *peer = nullptr;
-		ENetHost *client;
+		ENetPeer* peer = nullptr;
+		ENetHost* client;
 		ENetEvent event;
 
 		client = enet_host_create(NULL, 1, 2, 0, 0);
@@ -184,21 +204,21 @@ int main() {
 
 					if (connected) {
 						UpdateChat(chat);
-						player.Update(particles, effects, peer, explosionImage, flameImage);
-						for (auto &asteroid : asteroids)
+						player.Update(particles, effects, peer, explosionImage, flameImage, soundManager);
+						for (auto& asteroid : asteroids)
 							asteroid.Update(screenWidth, screenHeight);
-						for (auto &particle : particles)
+						for (auto& particle : particles)
 							particle.Update(particles);
-						for (auto &bullet : bullets)
+						for (auto& bullet : bullets)
 							bullet.Update(particles);
-						for (auto &item : items)
+						for (auto& item : items)
 							item.Update(screenWidth, screenHeight);
-						for (auto &player : players)
-							player.Update(particles, effects, explosionImage, flameImage);
-						for (auto &effect : effects)
+						for (auto& player : players)
+							player.Update(particles, effects, explosionImage, flameImage, soundManager);
+						for (auto& effect : effects)
 							effect.Update(effects, particles, explosionImage);
 
-						UpdateEffects(effects, particles, explosionImage, flameImage);
+						UpdateEffects(effects, particles, explosionImage, flameImage, soundManager);
 
 						if ((player.GetX() != player.GetPrevX() || player.GetY() != player.GetPrevY() || player.GetPrevDir() != player.GetDir())) {
 							player.SendPacket(peer);
@@ -207,7 +227,7 @@ int main() {
 						if (disconnect) {
 							char packet[256];
 							int packetlen = sprintf_s(packet, sizeof(packet), "PlayerDisconnect,%i", player.GetID());
-							ENetPacket *p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
+							ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 							enet_peer_send(peer, 0, p);
 						}
 
@@ -255,29 +275,19 @@ int main() {
 									player.SetReady(true);
 									char packet[256];
 									int packetlen = sprintf_s(packet, sizeof(packet), "Ready,%i", player.GetID());
-									ENetPacket *p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
+									ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 									enet_peer_send(peer, 0, p);
 
 								}
 								break;
-
-							case ALLEGRO_KEY_ENTER:
+							}
+							if (ev.keyboard.keycode == ALLEGRO_KEY_ENTER) {
 								player.SetTyping(true);
 								player.SetSeen(false);
 								player.SetChatMessage(player.GetName() + ": ");
 								player.SetKey(UP, false);
 								player.SetKey(LEFT, false);
 								player.SetKey(RIGHT, false);
-								break;
-
-							case ALLEGRO_KEY_SLASH:
-								player.SetTyping(true);
-								player.SetSeen(false);
-								player.SetChatMessage(player.GetName() + ": /");
-								player.SetKey(UP, false);
-								player.SetKey(LEFT, false);
-								player.SetKey(RIGHT, false);
-								break;
 							}
 						}
 						else if (ev.type == ALLEGRO_EVENT_KEY_UP) {
@@ -312,23 +322,17 @@ int main() {
 					}
 					if (player.GetTyping()) {
 						if (ev.type == ALLEGRO_EVENT_KEY_CHAR) {
-							if (player.GetSeen()) {
-								ALLEGRO_USTR *input = al_ustr_new("");
-								int unichar = ev.keyboard.unichar;
-								if (unichar >= 32)
-									al_ustr_append_chr(input, unichar);
+							ALLEGRO_USTR* input = al_ustr_new("");
+							int unichar = ev.keyboard.unichar;
+							if (unichar >= 32)
+								al_ustr_append_chr(input, unichar);
 
-								const char *lengthTestChar = al_cstr(input);
-								string input2 = lengthTestChar;
-								string name = player.GetName() + ": ";
+							const char* lengthTestChar = al_cstr(input);
+							string input2 = lengthTestChar;
+							string name = player.GetName() + ": ";
 
-								if (al_get_text_width(font18, player.GetChatMessage().c_str()) + al_get_text_width(font18, lengthTestChar) < screenWidth / 2 - 5)
-									player.SetChatMessage(player.GetChatMessage() + input2);
-							}
-
-							if (!player.GetSeen()) {
-								player.SetSeen(true);
-							}
+							if (al_get_text_width(font18, player.GetChatMessage().c_str()) + al_get_text_width(font18, lengthTestChar) < screenWidth / 2 - 5)
+								player.SetChatMessage(player.GetChatMessage() + input2);
 						}
 						else if (ev.type == ALLEGRO_EVENT_KEY_DOWN) {
 							string name = player.GetName() + ": ";
@@ -347,7 +351,7 @@ int main() {
 									if (player.GetChatMessage().size() > name.size()) {
 										char packet[256];
 										int packetlen = sprintf_s(packet, sizeof(packet), "Chat,%s", player.GetChatMessage().c_str());
-										ENetPacket *p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
+										ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 										enet_peer_send(peer, 0, p);
 									}
 									player.SetChatMessage(name);
@@ -375,7 +379,7 @@ int main() {
 				case ENET_EVENT_TYPE_CONNECT:
 				{
 					printf("(Client) We got a new connection from %x\n", event.peer->address.host);
-					event.peer->data = "Server";
+					//event.peer->data = "Server";
 					connected = true;
 					cout << "Waiting for level data..." << endl;
 				}
@@ -435,6 +439,7 @@ int main() {
 									}
 
 									players[i].PacketUpdate(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stof(msgVars[4].c_str()), stoi(msgVars[5].c_str()), stoi(msgVars[6].c_str()), stoi(msgVars[7].c_str()));
+
 									break;
 								}
 							}
@@ -446,6 +451,10 @@ int main() {
 								//effects.push_back(client_effect(player.GetX() - 16, player.GetY() - 16, 0, 0, 0, 3, shieldExplosionImage));
 							}
 
+							if (stof(msgVars[4].c_str()) < player.GetHealth())
+								soundManager.PlaySample("Hurt.wav");
+
+
 							player.SetHealth(stof(msgVars[4].c_str()));
 							player.SetShield(stoi(msgVars[7].c_str()));
 						}
@@ -455,9 +464,11 @@ int main() {
 						player.SetColor(stoi(msgVars[1].c_str()));
 						player.SetReady(false);
 
+						cout << "My ID:" << msgVars[0] << endl;
+
 						char packet[256];
 						int packetlen = sprintf_s(packet, sizeof(packet), "PlayerInfo,%i,%f,%f,%s", player.GetID(), player.GetX(), player.GetY(), player.GetName().c_str());
-						ENetPacket *p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
+						ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 						printf("Sent a packet to server containing %s\n", packet);
 						enet_peer_send(peer, 0, p);
 
@@ -478,7 +489,7 @@ int main() {
 							player.Win(stoi(msgVars[1].c_str()));
 						}
 						else {
-							for (auto &otherPlayer : players) {
+							for (auto& otherPlayer : players) {
 								if (otherPlayer.GetID() == ID)
 									otherPlayer.Win(stoi(msgVars[1].c_str()));
 							}
@@ -540,6 +551,21 @@ int main() {
 						int type = stoi(msgVars[4].c_str());
 						int ID = stoi(msgVars[5].c_str());
 						bullets.push_back(client_bullet(x, y, dir, type, speed, ID, bulletImages[type]));
+						
+						switch(type) {
+							case 0:
+								soundManager.PlaySample("Laser.wav");
+								break;
+							case 1:
+								soundManager.PlaySample("SmallLaser.wav");
+								break;
+							case 2:
+								soundManager.PlaySample("TripleShot.wav");
+								break;
+							case 3:
+								soundManager.PlaySample("Laser.wav");
+								break;
+						}
 					}
 					else if (Type == "BulletUpdate") {
 						int ID = stoi(msgVars[0].c_str());
@@ -585,12 +611,12 @@ int main() {
 						for (unsigned i = 0; i < asteroids.size(); i++) {
 							if (asteroids[i].GetID() == ID) {
 								if (asteroids[i].GetSize() == 0) {
-									effects.push_back(client_effect(asteroids[i].GetX() - 16, asteroids[i].GetY() - 16, 0, 0, 0, 2, smallAsteroidsExplosion));
+									effects.push_back(client_effect(asteroids[i].GetX() - 16, asteroids[i].GetY() - 16, 0, 0, 0, 2, smallAsteroidsExplosion, soundManager));
 								}
 								else {
-									effects.push_back(client_effect(asteroids[i].GetX() - 32, asteroids[i].GetY() - 32, 0, 0, 0, 2, bigAsteroidsExplosion));
+									effects.push_back(client_effect(asteroids[i].GetX() - 32, asteroids[i].GetY() - 32, 0, 0, 0, 2, bigAsteroidsExplosion, soundManager));
 								}
-								
+
 								for (int j = 0; j < 100 + asteroids[i].GetSize() * 100; j++) {
 									int color = 100 + (rand() % 31 - 15);
 									float dir = rand() % 361 * (M_PI / 180);
@@ -600,11 +626,13 @@ int main() {
 								}
 
 								asteroids.erase(asteroids.begin() + i);
+								soundManager.PlaySample("AsteroidBreak.wav");
 								break;
 							}
 						}
 					}
 					else if (Type == "NewAsteroid") {
+						cout << "New asteroid!" << endl;
 						asteroids.push_back(client_asteroid(stoi(msgVars[0].c_str()), stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stof(msgVars[4].c_str()), stoi(msgVars[5].c_str()), bigAsteroidImage, smallAsteroidImage));
 					}
 					else if (Type == "AsteroidUpdate") {
@@ -612,16 +640,6 @@ int main() {
 						for (unsigned i = 0; i < asteroids.size(); i++) {
 							if (asteroids[i].GetID() == ID) {
 								asteroids[i].PacketUpdate(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stof(msgVars[4].c_str()));
-
-								if (stoi(msgVars[5].c_str()) == 1) {
-									for (int j = 0; j < 10 + asteroids[i].GetSize() * 10; j++) {
-										int color = 100 + (rand() % 31 - 15);
-										float dir = rand() % 361 * (M_PI / 180);
-										int amountX = rand() % (16 + asteroids[i].GetSize() * 16) * cos(dir);
-										int amountY = rand() % (16 + asteroids[i].GetSize() * 16) * sin(dir);
-										particles.push_back(client_particle(asteroids[i].GetX() + amountX, asteroids[i].GetY() + amountY, color, color, color, 3, 50 + rand() % 100, rand() % 200 * .01, dir, rand() % 30 * .01 + .1));
-									}
-								}
 							}
 						}
 					}
@@ -646,21 +664,24 @@ int main() {
 							}
 						}
 					}
+					else if (Type == "ItemSound") {
+						soundManager.PlaySample("Powerup.wav");
+					}
 					else if (Type == "StartingHealth") {
 						player.SetNewHealth(stoi(msgVars[0].c_str()));
 						if (gameState == 0)
 							player.SetStartingHealth(stoi(msgVars[0].c_str()));
-
-						for (unsigned i = 0; i < players.size(); i++) {
-							players[i].SetNewHealth(stoi(msgVars[0].c_str()));
-							if (gameState == 0)
-								players[i].SetStartingHealth(stoi(msgVars[0].c_str()));
-						}
 					}
 					else if (Type == "StartTimer") {
 						startTime = stoi(msgVars[0].c_str());
-						if (startTime <= 1)
-							gameState = 1;
+						if (gameState == 0) {
+							if (startTime > 50)
+								soundManager.PlaySample("Countdown.wav", 1);
+							else {
+								soundManager.PlaySample("Go.wav", 1);
+								gameState = 1;
+							}
+						}
 					}
 					else if (Type == "Kick") {
 						kicked = true;
@@ -722,9 +743,9 @@ int main() {
 						al_draw_filled_rectangle(screenWidth, 0, screenWidth - 100 * (1), 5, al_map_rgb(255, 0, 170));
 						al_draw_filled_rectangle(screenWidth, 0, screenWidth - 100 * (player.GetChargeNum() / player.GetChargeNumMax()), 5, al_map_rgb(0, 0, 255));
 
-						if (gameState == 0 && player.GetReady() && startTime < 200) {
-							if (startTime > 50) {
-								al_draw_textf(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, "%i", (startTime) / 50);
+						if (player.GetReady() && startTime < 204) {
+							if (gameState == 0) {
+								al_draw_textf(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, "%i", (startTime - 50) / 50);
 							}
 							else {
 								al_draw_text(font40, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 20, ALLEGRO_ALIGN_CENTER, "GO");
@@ -776,6 +797,12 @@ int main() {
 					al_draw_textf(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2 - 30, ALLEGRO_ALIGN_CENTRE, "Time until next attempt: %i", connectTimer / 100);
 					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTRE, "Change IP in config.txt");
 				}
+
+				/*if (mainMenu) {
+					al_draw_text(font40, al_map_rgb(255, 255, 255), screenWidth / 2, 100, ALLEGRO_ALIGN_CENTRE, "Asteroid Arena");
+					al_draw_text(font18, al_map_rgb(255, 255, 255), screenWidth / 2, screenHeight / 2, ALLEGRO_ALIGN_CENTRE, "Connect to server");
+				}*/
+
 				al_flip_display();
 			}
 		}
@@ -799,7 +826,7 @@ int main() {
 	return 0;
 }
 
-void ResetGame(client_player &player, int &gameState, ENetPeer *peer, vector<client_other_player> &players, vector<client_bullet> &bullets, vector<client_particle> &particles, vector<client_effect> &effects, vector<client_asteroid> &asteroids, vector<client_item> &items) {
+void ResetGame(client_player& player, int& gameState, ENetPeer* peer, vector<client_other_player>& players, vector<client_bullet>& bullets, vector<client_particle>& particles, vector<client_effect>& effects, vector<client_asteroid>& asteroids, vector<client_item>& items) {
 	gameState = 0;
 
 	bullets.clear();
@@ -809,14 +836,14 @@ void ResetGame(client_player &player, int &gameState, ENetPeer *peer, vector<cli
 	asteroids.clear();
 	items.clear();
 
-	for (auto &otherPlayer : players)
+	for (auto& otherPlayer : players)
 		otherPlayer.Reset();
 
 	InitStars(particles);
 	player.SendPacket(peer);
 }
 
-void CleanUp(vector<client_particle> &particles, vector<client_effect> &effects) {
+void CleanUp(vector<client_particle>& particles, vector<client_effect>& effects) {
 	for (unsigned i = 0; i < particles.size();) {
 		if (!particles[i].GetActive())
 			particles.erase(particles.begin() + i);
@@ -832,31 +859,31 @@ void CleanUp(vector<client_particle> &particles, vector<client_effect> &effects)
 	}
 }
 
-void InitStars(vector<client_particle> &particles) {
+void InitStars(vector<client_particle>& particles) {
 	for (int i = 0; i < rand() % 10 + 20; i++) {
 		int color = rand() % 100 + 100;
 		particles.push_back(client_particle(rand() % screenWidth, rand() % screenHeight, color, color, color, 2, 0, 1, 0, 0));
 	}
 }
 
-void UpdateEffects(vector<client_effect> &effects, vector<client_particle> &particles, ALLEGRO_BITMAP *explosionImage, ALLEGRO_BITMAP *flameImage) {
+void UpdateEffects(vector<client_effect>& effects, vector<client_particle>& particles, ALLEGRO_BITMAP* explosionImage, ALLEGRO_BITMAP* flameImage, SoundManager &soundManager) {
 	for (unsigned i = 0; i < effects.size(); i++) {
 		if (effects[i].GetType() == 1) {
 			if (rand() % 5 == 0)
 				particles.push_back(client_particle(effects[i].GetX() - 6 * cos(effects[i].GetDir() * (M_PI / 180)), effects[i].GetY() - 6 * sin(effects[i].GetDir() * (M_PI / 180)), 255, rand() % 255, 0, 0, 30, rand() % 3, effects[i].GetDir() * (M_PI / 180) + (rand() % 61 - 30) * (M_PI / 180) + M_PI, rand() % 100 * .01));
 			if (effects[i].GetSpeed() >= 3 && effects[i].GetSpeed() <= 5) {
 				if (rand() % 2 == 0)
-					effects.push_back(client_effect(effects[i].GetX() - 32, effects[i].GetY() - 32, 0, 0, rand() % 5 - 3, 0, explosionImage));
+					effects.push_back(client_effect(effects[i].GetX() - 32, effects[i].GetY() - 32, 0, 0, rand() % 5 - 3, 0, explosionImage, soundManager));
 				if (rand() % 3 == 0)
-					effects.push_back(client_effect(effects[i].GetX(), effects[i].GetY(), (rand() % 361 - 180) * (M_PI / 180), 2 + rand() % 2, rand() % 20 - 10, 1, flameImage));
+					effects.push_back(client_effect(effects[i].GetX(), effects[i].GetY(), (rand() % 361 - 180) * (M_PI / 180), 2 + rand() % 2, rand() % 20 - 10, 1, flameImage, soundManager));
 				if (rand() % 2 == 0)
-					effects.push_back(client_effect(effects[i].GetX(), effects[i].GetY(), (rand() % 361 - 180) * (M_PI / 180), 2, rand() % 20 + 20, 1, flameImage));
+					effects.push_back(client_effect(effects[i].GetX(), effects[i].GetY(), (rand() % 361 - 180) * (M_PI / 180), 2, rand() % 20 + 20, 1, flameImage, soundManager));
 			}
 		}
 	}
 }
 
-void UpdateChat(vector<ChatMessage> &chat) {
+void UpdateChat(vector<ChatMessage>& chat) {
 	for (unsigned int i = 0; i < chat.size(); i++) {
 		if (chat[i].life > 0)
 			chat[i].life--;
@@ -864,7 +891,7 @@ void UpdateChat(vector<ChatMessage> &chat) {
 			chat[i].alpha--;
 	}
 }
-void DrawChat(vector<ChatMessage> &chat, ALLEGRO_FONT *font18, client_player player) {
+void DrawChat(vector<ChatMessage>& chat, ALLEGRO_FONT* font18, client_player player) {
 	for (unsigned int i = 0; i < chat.size(); i++) {
 		if (chat[i].life > 0 || player.GetTyping()) {
 			if (player.GetTyping()) {
@@ -879,7 +906,7 @@ void DrawChat(vector<ChatMessage> &chat, ALLEGRO_FONT *font18, client_player pla
 	}
 }
 
-string LoadConfig(int &loadPort) {
+string LoadConfig(int& loadPort) {
 	string file;
 	string loadIP;
 	vector<string> fileLines;
@@ -938,7 +965,7 @@ string GetMyIP() {
 	WSADATA wsaData;
 	WORD wVersionRequested = MAKEWORD(2, 0);
 	if (::WSAStartup(wVersionRequested, &wsaData) != 0)
-		return false;
+		return "localhost";
 #endif
 
 
@@ -947,24 +974,24 @@ string GetMyIP() {
 #ifdef WIN32
 		WSACleanup();
 #endif
-		return false;
+		return "localhost";
 	}
 
-	struct hostent *host = gethostbyname(szBuffer);
+	struct hostent* host = gethostbyname(szBuffer);
 	if (host == NULL)
 	{
 #ifdef WIN32
 		WSACleanup();
 #endif
-		return false;
+		return "localhost";
 	}
 
 	//Obtain the computer's IP
 	unsigned char b1, b2, b3, b4;
-	b1 = ((struct in_addr *)(host->h_addr))->S_un.S_un_b.s_b1;
-	b2 = ((struct in_addr *)(host->h_addr))->S_un.S_un_b.s_b2;
-	b3 = ((struct in_addr *)(host->h_addr))->S_un.S_un_b.s_b3;
-	b4 = ((struct in_addr *)(host->h_addr))->S_un.S_un_b.s_b4;
+	b1 = ((struct in_addr*)(host->h_addr))->S_un.S_un_b.s_b1;
+	b2 = ((struct in_addr*)(host->h_addr))->S_un.S_un_b.s_b2;
+	b3 = ((struct in_addr*)(host->h_addr))->S_un.S_un_b.s_b3;
+	b4 = ((struct in_addr*)(host->h_addr))->S_un.S_un_b.s_b4;
 
 #ifdef WIN32
 	WSACleanup();

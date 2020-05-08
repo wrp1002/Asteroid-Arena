@@ -15,64 +15,40 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ClientMain.cpp">
+    <ClCompile Include="Server_Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="client_player.cpp">
+    <ClCompile Include="server_player.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="client_particle.cpp">
+    <ClCompile Include="server_bullet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="client_bullet.cpp">
+    <ClCompile Include="server_asteroid.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="client_asteroid.cpp">
+    <ClCompile Include="server_item.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="client_other_player.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="client_effect.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="client_item.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="server_globals.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="server_player.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="server_bullet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="server_asteroid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="server_item.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="client_player.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="client_particle.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="client_bullet.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="client_asteroid.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="client_other_player.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="client_globals.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="client_effect.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="client_item.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

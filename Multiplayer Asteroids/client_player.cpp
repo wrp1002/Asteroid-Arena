@@ -1,19 +1,21 @@
 #include "client_player.h"
 
 
-client_player::client_player(int x, int y, int health, string name, ALLEGRO_BITMAP *image) {
-	keys[0] = false;
-	keys[1] = false;
-	keys[2] = false;
-	keys[3] = false;
-	keys[4] = false;
-	keys[5] = false;
+client_player::client_player(int x, int y, int health, string name, ALLEGRO_BITMAP* image) {
+	keys[UP] = false;
+	keys[DOWN] = false;
+	keys[LEFT] = false;
+	keys[RIGHT] = false;
+	keys[TAB] = false;
+	keys[SHOOT] = false;
 
 	this->x = x;
 	this->y = y;
 	this->health = health;
+	this->maxHealth = health;
 	this->image = image;
 	this->name = name;
+	color = 0;
 
 	radius = 8;
 	prevX = x;
@@ -49,7 +51,11 @@ client_player::client_player(int x, int y, int health, string name, ALLEGRO_BITM
 	bulletTimerStart = bulletTimerDefault;
 }
 
-void client_player::Update(vector<client_particle> &particles, vector<client_effect> &effects, ENetPeer *peer, ALLEGRO_BITMAP *explosionImage, ALLEGRO_BITMAP *flameImage) {
+client_player::~client_player()
+{
+}
+
+void client_player::Update(vector<client_particle>& particles, vector<client_effect>& effects, ENetPeer* peer, ALLEGRO_BITMAP* explosionImage, ALLEGRO_BITMAP* flameImage, SoundManager& soundManager) {
 	if (alive) {
 		prevX = x;
 		prevY = y;
@@ -66,7 +72,7 @@ void client_player::Update(vector<client_particle> &particles, vector<client_eff
 
 			char packet[256];
 			int packetlen = sprintf_s(packet, sizeof(packet), "Shoot,%i", ID);
-			ENetPacket *p = enet_packet_create((char*)packet, strlen(packet) + 1, NULL);
+			ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, NULL);
 			enet_peer_send(peer, 0, p);
 		}
 
@@ -78,7 +84,7 @@ void client_player::Update(vector<client_particle> &particles, vector<client_eff
 			dir -= turnSpeed;
 		if (keys[RIGHT])
 			dir += turnSpeed;
-		
+
 		if (keys[BOOST] && boostFull && moving) {
 			if (!boost) {
 				boostSpeed = 1;
@@ -158,9 +164,11 @@ void client_player::Update(vector<client_particle> &particles, vector<client_eff
 			alive = false;
 
 			for (int i = 0; i < 10; i++)
-				effects.push_back(client_effect(x - 32 + rand() % 33 - 16, y - 32 + rand() % 33 - 16, 0, 0, rand() % 5 - 3, 0, explosionImage));
+				effects.push_back(client_effect(x - 32 + rand() % 33 - 16, y - 32 + rand() % 33 - 16, 0, 0, rand() % 5 - 3, 0, explosionImage, soundManager));
 			for (int i = 0; i < 20; i++)
-				effects.push_back(client_effect(x, y, (rand() % 361 - 180) * (M_PI / 180), 3 + rand() % 3, rand() % 20 + 10, 1, flameImage));
+				effects.push_back(client_effect(x, y, (rand() % 361 - 180) * (M_PI / 180), 3 + rand() % 3, rand() % 20 + 10, 1, flameImage, soundManager));
+
+
 			for (int i = 0; i < 5000; i++)
 				particles.push_back(client_particle(x, y, 255, rand() % 255, 0, 1, rand() % 30, rand() % 2, rand() % 360 * (M_PI / 180), 3 + rand() % 200 * .01));
 		}
@@ -168,20 +176,20 @@ void client_player::Update(vector<client_particle> &particles, vector<client_eff
 		if (moving && health > 0) {
 			particles.push_back(client_particle(x - 6 * cos(dir * (M_PI / 180)), y - 6 * sin(dir * (M_PI / 180)), 255, rand() % 255, 0, 1, rand() % 10 + 10, rand() % 3, dir * (M_PI / 180) + (rand() % 91 - 45) * (M_PI / 180) + M_PI, rand() % 100 * .01));
 			if (boost)
-				effects.push_back(client_effect(x - 6 * cos(dir * (M_PI / 180)), y - 6 * sin(dir * (M_PI / 180)), dir * (M_PI / 180) + (rand() % 31 - 15) * (M_PI / 180) + M_PI, rand() % 50 * .01 + 6, rand() % 5 + 5, 1, flameImage));
+				effects.push_back(client_effect(x - 4 - 6 * cos(dir * (M_PI / 180)), y - 4 - 6 * sin(dir * (M_PI / 180)), dir * (M_PI / 180) + (rand() % 31 - 15) * (M_PI / 180) + M_PI, rand() % 50 * .01 + 6, rand() % 5 + 5, 1, flameImage, soundManager));
 		}
 
 		if (health <= maxHealth * .4) {
 			if (rand() % 10 * health == 0) {
-				effects.push_back(client_effect(x, y, rand() % 361 * (M_PI / 180), rand() % 10 * .1, rand() % 10 + 10, 1, flameImage));
+				effects.push_back(client_effect(x, y, rand() % 361 * (M_PI / 180), rand() % 10 * .1, rand() % 10 + 10, 1, flameImage, soundManager));
 			}
 		}
 	}
 }
 
-void client_player::Draw(ALLEGRO_DISPLAY *display, ALLEGRO_FONT *font, bool showInfo) {
+void client_player::Draw(ALLEGRO_DISPLAY* display, ALLEGRO_FONT* font, bool showInfo) {
 	if (alive) {
-		ALLEGRO_BITMAP *temp = al_create_bitmap(radius * 2, radius * 2);
+		ALLEGRO_BITMAP* temp = al_create_bitmap(radius * 2, radius * 2);
 		al_set_target_bitmap(temp);
 		al_draw_bitmap_region(image, moving * radius * 2, radius * 2 * color, radius * 2, radius * 2, 0, 0, NULL);
 		al_set_target_bitmap(al_get_backbuffer(display));
@@ -201,10 +209,10 @@ void client_player::Draw(ALLEGRO_DISPLAY *display, ALLEGRO_FONT *font, bool show
 		al_draw_circle(x, y, radius, al_map_rgb(255, 0, 255), 2);
 }
 
-void client_player::SendPacket(ENetPeer *peer) {
+void client_player::SendPacket(ENetPeer* peer) {
 	char packet[256];
 	int packetlen = sprintf_s(packet, sizeof(packet), "PlayerUpdate,%i,%f,%f,%f,%i,%i", ID, x, y, dir, moving, boost);
-	ENetPacket *p = enet_packet_create((char*)packet, strlen(packet) + 1, NULL);
+	ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, NULL);
 	enet_peer_send(peer, 0, p);
 }
 
@@ -220,7 +228,7 @@ void client_player::Reset(int screenWidth, int screenHeight) {
 	invincibleTimer = 0;
 	x = rand() % screenWidth;
 	y = rand() % screenHeight;
-	
+
 	alive = true;
 	exploded = false;
 	shield = false;
@@ -294,7 +302,10 @@ void client_player::SetKey(int key, bool state) { keys[key] = state; }
 void client_player::SetSeen(bool seen) { this->seen = seen; }
 void client_player::SetName(string name) { this->name = name; }
 void client_player::SetChatMessage(string message) { this->message = message; }
-void client_player::SetID(int ID) { this->ID = ID; }
+void client_player::SetID(int ID) { 
+	cout << "Setting ID to " << ID << endl;
+	this->ID = ID; 
+}
 void client_player::SetHealth(float health) { this->health = health; }
 void client_player::SetStartingHealth(float health) { this->maxHealth = health; this->health = this->maxHealth; this->newHealth = health; }
 void client_player::SetColor(float color) { this->color = color; }
