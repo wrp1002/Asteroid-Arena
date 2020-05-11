@@ -38,6 +38,7 @@ float GetAngle(float x1, float y1, float x2, float y2);
 float GetDistance(float x1, float y1, float x2, float y2);
 void ClearScreen();
 string generatePassword();
+bool IsNumber(string n);
 
 int main() {
 	while (restartGame) {
@@ -297,8 +298,6 @@ int main() {
 							while (getline(ss, token, ' '))
 								commandVars.push_back(token);
 
-							for (unsigned i = 0; i < 5; i++)
-								commandVars.push_back("-1");
 
 							for (unsigned j = 0; j < players.size(); j++) {
 								string testName = players[j].GetName();
@@ -331,9 +330,15 @@ int main() {
 												MessagePlayer(commands[i], 255, 255, 255, server, players[j].GetID());
 										}
 										else if (commandVars[0] == "kick") {
+											if (commandVars.size() != 2) {
+												MessagePlayer("Invalid syntax", 255, 0, 0, server, players[j].GetID());
+												break;
+											}
+
 											for (unsigned i = 0; i < players.size(); i++) {
 												string name = players[i].GetName();
-												transform(players[i].GetName().begin(), players[i].GetName().end(), name.begin(), tolower);
+												transform(name.begin(), name.end(), name.begin(), tolower);
+
 												if (name == commandVars[1]) {
 													char packet[256] = "Kick,Kicked From Game";
 													ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
@@ -355,6 +360,11 @@ int main() {
 											SendChat("Restarting Game...", 255, 0, 0, server);
 										}
 										else if (commandVars[0] == "sethealth") {
+											if (commandVars.size() != 2 || !IsNumber(commandVars[1])) {
+												MessagePlayer("Invalid syntax", 255, 0, 0, server, players[j].GetID());
+												break;
+											}
+
 											startingHealth = stoi(commandVars[1].c_str());
 											SaveConfig(maxPlayers, startingHealth);
 											string healthMessage = "Starting Health Set To " + commandVars[1];
@@ -392,6 +402,12 @@ int main() {
 											}
 										}
 										else if (commandVars[0] == "weapon") {
+											if (commandVars.size() != 2 || !IsNumber(commandVars[1])) {
+												MessagePlayer("Invalid syntax", 255, 0, 0, server, players[j].GetID());
+												break;
+											}
+
+
 											int weapon = stoi(commandVars[1].c_str());
 
 											players[j].SetWeapon(weapon);
@@ -984,6 +1000,9 @@ string generatePassword() {
 		}
 	}
 	return password;
+}
+bool IsNumber(string n) {
+	return n.find_first_not_of("0123456789") == string::npos;
 }
 void ClearScreen()
 {

@@ -38,7 +38,7 @@ void client_asteroid::PacketUpdate(float x, float y, float velX, float velY) {
 	this->velY = velY;
 }
 
-void client_asteroid::Update(int screenWidth, int screenHeight) {
+void client_asteroid::Update() {
 	dir += rotDir * rotSpeed * (M_PI / 180);
 
 	x += velX;
@@ -54,12 +54,12 @@ void client_asteroid::Update(int screenWidth, int screenHeight) {
 		velY = 1.5;
 
 	if (x + radius < -radius)
-		x = (float)screenWidth + radius;
-	else if (x - radius > screenWidth)
+		x = (float)SCREEN_WIDTH + radius;
+	else if (x - radius > SCREEN_WIDTH)
 		x = -radius;
 	if (y + radius < -radius)
-		y = (float)screenHeight + radius;
-	else if (y - radius > screenHeight)
+		y = (float)SCREEN_HEIGHT + radius;
+	else if (y - radius > SCREEN_HEIGHT)
 		y = -radius;
 }
 

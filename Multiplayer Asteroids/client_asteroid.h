@@ -5,6 +5,7 @@
 #include <allegro5\allegro.h>
 #include <allegro5\allegro_primitives.h>
 #include <vector>
+#include "client_globals.h"
 
 class client_asteroid {
 private:
@@ -17,7 +18,7 @@ public:
 	client_asteroid(int ID, float x, float y, float moveDir, float speed, int size, ALLEGRO_BITMAP* bigAsteroidImage, ALLEGRO_BITMAP* smallAsteroidImage);
 
 	void PacketUpdate(float x, float y, float velX, float velY);
-	void Update(int screenWidth, int screenHeight);
+	void Update();
 	void Draw(bool showInfo);
 
 	int GetID();

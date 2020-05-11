@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Button.cpp" />
     <ClCompile Include="ClientMain.cpp" />
     <ClCompile Include="client_asteroid.cpp" />
     <ClCompile Include="client_bullet.cpp" />
@@ -27,12 +28,14 @@
     <ClCompile Include="client_other_player.cpp" />
     <ClCompile Include="client_particle.cpp" />
     <ClCompile Include="client_player.cpp" />
+    <ClCompile Include="Menu.cpp" />
     <ClCompile Include="SoundManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Button.h" />
     <ClInclude Include="client_asteroid.h" />
     <ClInclude Include="client_bullet.h" />
     <ClInclude Include="client_effect.h" />
@@ -41,6 +44,7 @@
     <ClInclude Include="client_other_player.h" />
     <ClInclude Include="client_particle.h" />
     <ClInclude Include="client_player.h" />
+    <ClInclude Include="Menu.h" />
     <ClInclude Include="SoundManager.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
