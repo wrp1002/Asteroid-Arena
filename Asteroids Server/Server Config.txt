@@ -1,2 +1,0 @@
-Max Players:4
-Starting Health:2

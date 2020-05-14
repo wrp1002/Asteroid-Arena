@@ -30,6 +30,7 @@
 #include "client_effect.h"
 #include "client_asteroid.h"
 #include "client_item.h"
+#include "client_enemy.h"
 #include "SoundManager.h"
 #include "Menu.h"
 
@@ -48,7 +49,7 @@ void InitMenus(vector<Menu>& menus, ALLEGRO_FONT* font40, ALLEGRO_FONT* font18);
 void InitStars(vector<client_particle>& particles);
 void InitMainMenu(vector<Menu>& menus, vector<client_asteroid>& asteroids, ALLEGRO_BITMAP* bigAsteroidImage, ALLEGRO_BITMAP* smallAsteroidImage);
 
-void ResetGame(client_player& player, int& gameState, ENetPeer* peer, vector<client_other_player>& players, vector<client_bullet>& bullets, vector<client_particle>& particles, vector<client_effect>& effects, vector<client_asteroid>& asteroids, vector<client_item>& items);
+void ResetGame(client_player& player, int& gameState, ENetPeer* peer, vector<client_other_player>& players, vector<client_bullet>& bullets, vector<client_particle>& particles, vector<client_effect>& effects, vector<client_asteroid>& asteroids, vector<client_item>& items, vector<client_enemy>& enemies);
 void CleanUp(vector<client_particle>& particles, vector<client_effect>& effects);
 
 void UpdateEffects(vector<client_effect>& effects, vector<client_particle>& particles, ALLEGRO_BITMAP* explosionImage, ALLEGRO_BITMAP* flameImage, SoundManager& soundManager);
@@ -94,6 +95,7 @@ int main() {
 	vector<client_asteroid> asteroids;
 	vector<ChatMessage> chat;
 	vector<client_item> items;
+	vector<client_enemy> enemies;
 	vector<Menu> menus;
 
 	InitStars(particles);
@@ -113,7 +115,7 @@ int main() {
 	al_install_keyboard();
 	al_install_mouse();
 	enet_initialize();
-	if (!al_reserve_samples(20)) {
+	if (!al_reserve_samples(50)) {
 		printf("Could not reserve samples!\n");
 		system("pause");
 	}
@@ -123,26 +125,28 @@ int main() {
 
 	ALLEGRO_EVENT_QUEUE* event_queue = al_create_event_queue();
 	ALLEGRO_TIMER* timer = al_create_timer(1.0 / FPS);
-	ALLEGRO_FONT* font18 = al_load_font("Resources/minecraft.ttf", 18, 0);
-	ALLEGRO_FONT* font10 = al_load_font("Resources/minecraft.ttf", 10, 0);
-	ALLEGRO_FONT* font7 = al_load_font("Resources/arial.ttf", 7, 0);
-	ALLEGRO_FONT* font40 = al_load_font("Resources/minecraft.ttf", 40, 0);
-	ALLEGRO_FONT* titleFont = al_load_font("Resources/minecraft.ttf", 60, 0);
+	ALLEGRO_FONT* font18 = al_load_font("Resources/Fonts/minecraft.ttf", 18, 0);
+	ALLEGRO_FONT* font10 = al_load_font("Resources/Fonts/minecraft.ttf", 10, 0);
+	ALLEGRO_FONT* font7 = al_load_font("Resources/Fonts/arial.ttf", 7, 0);
+	ALLEGRO_FONT* font40 = al_load_font("Resources/Fonts/minecraft.ttf", 40, 0);
+	ALLEGRO_FONT* titleFont = al_load_font("Resources/Fonts/minecraft.ttf", 60, 0);
 
-	ALLEGRO_BITMAP* playerImage = al_load_bitmap("Resources/ship.png");
-	ALLEGRO_BITMAP* explosionImage = al_load_bitmap("Resources/explosion.png");
-	ALLEGRO_BITMAP* flameImage = al_load_bitmap("Resources/flame.png");
-	ALLEGRO_BITMAP* bigAsteroidImage = al_load_bitmap("Resources/bigAsteroid.png");
-	ALLEGRO_BITMAP* smallAsteroidImage = al_load_bitmap("Resources/smallAsteroid.png");
-	ALLEGRO_BITMAP* bigAsteroidsExplosion = al_load_bitmap("Resources/asteroidExplosion.png");
-	ALLEGRO_BITMAP* smallAsteroidsExplosion = al_load_bitmap("Resources/smallAsteroidExplosion.png");
-	ALLEGRO_BITMAP* itemImage = al_load_bitmap("Resources/Items.png");
-	ALLEGRO_BITMAP* shieldExplosionImage = al_load_bitmap("Resources/shield explosion.png");
+	ALLEGRO_BITMAP* playerImage = al_load_bitmap("Resources/Images/ship.png");
+	ALLEGRO_BITMAP* enemyImage = al_load_bitmap("Resources/Images/enemy.png");
+	ALLEGRO_BITMAP* explosionImage = al_load_bitmap("Resources/Images/explosion.png");
+	ALLEGRO_BITMAP* flameImage = al_load_bitmap("Resources/Images/flame.png");
+	ALLEGRO_BITMAP* itemImage = al_load_bitmap("Resources/Images/Items.png");
+	ALLEGRO_BITMAP* bigAsteroidImage = al_load_bitmap("Resources/Images/bigAsteroid.png");
+	ALLEGRO_BITMAP* smallAsteroidImage = al_load_bitmap("Resources/Images/smallAsteroid.png");
+	ALLEGRO_BITMAP* bigAsteroidsExplosion = al_load_bitmap("Resources/Images/asteroidExplosion.png");
+	ALLEGRO_BITMAP* smallAsteroidsExplosion = al_load_bitmap("Resources/Images/smallAsteroidExplosion.png");
+	ALLEGRO_BITMAP* shieldExplosionImage = al_load_bitmap("Resources/Images/shield explosion.png");
 
-	ALLEGRO_BITMAP* bulletImages[4] = { al_load_bitmap("Resources/bullet.png"),
-										al_load_bitmap("Resources/small bullet.png"),
-										al_load_bitmap("Resources/triple bullet.png"),
-										al_load_bitmap("Resources/magnet bullet.png") };
+	ALLEGRO_BITMAP* bulletImages[5] = { al_load_bitmap("Resources/Images/bullet.png"),
+										al_load_bitmap("Resources/Images/small bullet.png"),
+										al_load_bitmap("Resources/Images/triple bullet.png"),
+										al_load_bitmap("Resources/Images/magnet bullet.png"),
+										al_load_bitmap("Resources/Images/triple bullet.png") };
 
 	al_register_event_source(event_queue, al_get_display_event_source(display));
 	al_register_event_source(event_queue, al_get_timer_event_source(timer));
@@ -167,7 +171,7 @@ int main() {
 	//	========================================================================================================================
 	ENetAddress address;
 	ENetPeer* peer = nullptr;
-	ENetHost* client;
+	ENetHost* client = nullptr;
 	ENetEvent event;
 
 	client = enet_host_create(NULL, 1, 2, 0, 0);
@@ -204,8 +208,9 @@ int main() {
 			}
 			else if (ev.type == ALLEGRO_EVENT_MOUSE_AXES) {
 				for (auto& menu : menus) {
-					if (menu.IsEnabled())
-						menu.Update(ev.mouse.x, ev.mouse.y);
+					if (menu.IsEnabled()) {
+						menu.Update(ev.mouse.x, ev.mouse.y, soundManager);
+					}
 				}
 			}
 			else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
@@ -215,6 +220,9 @@ int main() {
 							string name = menu.GetClicked(ev.mouse.x, ev.mouse.y);
 							cout << "Clicked: " << name << endl;
 
+							if (name != "null")
+								soundManager.PlaySample("Click.wav", 1);
+
 							if (name == "null") {}
 							else if (name == "connectServer") {
 								menus[MAIN_MENU].Disable();
@@ -222,6 +230,7 @@ int main() {
 								mainMenu = false;
 								connectTimer = 100;
 								enet_address_set_host(&address, IP.c_str());
+								address.port = port;
 
 								menus[CONNECT_MENU].UpdateButton("connectInfo", "Server: " + IP + ":" + to_string(port));
 							}
@@ -231,6 +240,7 @@ int main() {
 								mainMenu = false;
 								connectTimer = 100;
 								enet_address_set_host(&address, "localhost");
+								address.port = port;
 
 								menus[CONNECT_MENU].UpdateButton("connectInfo", "Server: localhost:" + to_string(port));
 							}
@@ -239,7 +249,7 @@ int main() {
 								menus[CONTROLS_MENU].Enable();
 							}
 							else if (name == "editConfig") {
-								system("cmd.exe /c \"Client Config.txt\"");
+								system("cmd.exe /c \"Resources/Client Config.txt\"");
 								LoadConfig(IP, port, username);
 								menus[MAIN_MENU].UpdateButton("server", "Server: " + IP + ":" + to_string(port));
 								menus[MAIN_MENU].UpdateButton("username", "Username: " + username);
@@ -270,7 +280,7 @@ int main() {
 
 					for (auto& menu : menus) {
 						if (menu.IsEnabled())
-							menu.Update(ev.mouse.x, ev.mouse.y);
+							menu.Update(0, 0, soundManager);
 					}
 				}
 			}
@@ -285,6 +295,8 @@ int main() {
 					
 				for (auto& asteroid : asteroids)
 					asteroid.Update();
+				for (auto& enemy : enemies)
+					enemy.Update(particles, effects, flameImage, soundManager);
 
 				if (connected) {
 					UpdateChat(chat);
@@ -301,10 +313,6 @@ int main() {
 						effect.Update(effects, particles, explosionImage);
 
 					UpdateEffects(effects, particles, explosionImage, flameImage, soundManager);
-
-					if ((player.GetX() != player.GetPrevX() || player.GetY() != player.GetPrevY() || player.GetPrevDir() != player.GetDir())) {
-						player.SendPacket(peer);
-					}
 
 					if (disconnect) {
 						char packet[256];
@@ -374,6 +382,8 @@ int main() {
 							if (ev.keyboard.keycode == ALLEGRO_KEY_SLASH)
 								player.SetSeen(true);
 						}
+
+						player.SendPacket(peer);
 					}
 					else if (ev.type == ALLEGRO_EVENT_KEY_UP) {
 						if (!player.GetTyping()) {
@@ -403,6 +413,8 @@ int main() {
 								break;
 							}
 						}
+
+						player.SendPacket(peer);
 					}
 				}
 				if (player.GetTyping()) {
@@ -456,7 +468,9 @@ int main() {
 
 				if (connectTimer <= 0) {
 					connectTimer = connectTimerStart;
-					address.port = port;
+
+					if (peer != nullptr)
+						enet_peer_reset(peer);
 					peer = enet_host_connect(client, &address, 1, 0);
 				}
 			}
@@ -481,7 +495,7 @@ int main() {
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
 				int messageCount = 0;
-				//printf("Recieved a message from server: %s\n", event.packet->data);
+				printf("Recieved a message from server: %s\n", event.packet->data);
 				string Type;
 				char message[100];
 				vector<string> msgVars;
@@ -525,19 +539,13 @@ int main() {
 					if (ID != player.GetID()) {
 						for (unsigned int i = 0; i < players.size(); i++) {
 							if (players[i].GetID() == ID) {
-								if (players[i].GetShield() && stoi(msgVars[7].c_str()) == 0) {
-									for (int j = 0; j < 1000; j++)
-										particles.push_back(client_particle(players[i].GetX(), players[i].GetY(), 0, 100, 255, 1, rand() % 20, rand() % 2, rand() % 360 * (M_PI / 180), 3 + rand() % 200 * .01));
-									//effects.push_back(client_effect(players[i].GetX() - 16, players[i].GetY() - 16, 0, 0, 0, 3, shieldExplosionImage));
-								}
-
-								players[i].PacketUpdate(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stof(msgVars[4].c_str()), stoi(msgVars[5].c_str()), stoi(msgVars[6].c_str()), stoi(msgVars[7].c_str()));
+								players[i].PacketUpdate(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stof(msgVars[4].c_str()), stof(msgVars[5].c_str()), stoi(msgVars[6].c_str()), stoi(msgVars[7].c_str()), stoi(msgVars[8].c_str()), stoi(msgVars[9].c_str()));
 
 								break;
 							}
 						}
 					}
-					else {
+					/*else {
 						if (player.GetShield() && stoi(msgVars[7].c_str()) == 0) {
 							for (int i = 0; i < 1000; i++)
 								particles.push_back(client_particle(player.GetX(), player.GetY(), 0, 100, 255, 1, rand() % 20, rand() % 2, rand() % 360 * (M_PI / 180), 3 + rand() % 200 * .01));
@@ -550,7 +558,7 @@ int main() {
 
 						player.SetHealth(stof(msgVars[4].c_str()));
 						player.SetShield(stoi(msgVars[7].c_str()));
-					}
+					}*/
 				}
 				else if (Type == "PlayerID") {
 					player.SetID(stoi(msgVars[0].c_str()));
@@ -566,6 +574,63 @@ int main() {
 					enet_peer_send(peer, 0, p);
 
 					player.SendPacket(peer);
+				}
+				else if (Type == "PlayerHealth") {
+					int ID = stoi(msgVars[0].c_str());
+					if (ID != player.GetID()) {
+						for (unsigned int i = 0; i < players.size(); i++) {
+							if (players[i].GetID() == ID) {
+								players[i].SetHealth(stof(msgVars[1].c_str()));
+
+								break;
+							}
+						}
+					}
+					else {
+						float health = stof(msgVars[1].c_str());
+						if (health < player.GetHealth()) {
+							for (int i = 0; i < 10; i++)
+								effects.push_back(client_effect(player.GetX(), player.GetY(), rand() % 361 * (M_PI / 180), rand() % 10 * .1, rand() % 10 + 10, 1, flameImage, soundManager));
+
+							if (stof(msgVars[1].c_str()) < player.GetHealth())
+								soundManager.PlaySample("Hurt.wav");
+						}
+
+						player.SetHealth(stof(msgVars[1].c_str()));
+					}
+				}
+				else if (Type == "PlayerShield") {
+					int ID = stoi(msgVars[0].c_str());
+					if (ID != player.GetID()) {
+						for (unsigned int i = 0; i < players.size(); i++) {
+							if (players[i].GetID() == ID) {
+								bool shield = stoi(msgVars[1].c_str());
+
+								if (players[i].GetShield() && !shield) {
+									for (int j = 0; j < 1000; j++)
+										particles.push_back(client_particle(players[i].GetX(), players[i].GetY(), 0, 100, 255, 1, rand() % 20, rand() % 2, rand() % 360 * (M_PI / 180), 3 + rand() % 200 * .01));
+
+									soundManager.PlaySample("ShieldBreak.wav");
+								}
+
+								players[i].SetShield(shield);
+
+								break;
+							}
+						}
+					}
+					else {
+						bool shield = stoi(msgVars[1].c_str());
+
+						if (player.GetShield() && !shield) {
+							for (int j = 0; j < 1000; j++)
+								particles.push_back(client_particle(player.GetX(), player.GetY(), 0, 100, 255, 1, rand() % 20, rand() % 2, rand() % 360 * (M_PI / 180), 3 + rand() % 200 * .01));
+
+							soundManager.PlaySample("ShieldBreak.wav");
+						}
+
+						player.SetShield(shield);
+					}
 				}
 				else if (Type == "Weapon") {
 					int ID = stoi(msgVars[0].c_str());
@@ -600,11 +665,13 @@ int main() {
 				else if (Type == "SetKnockback") {
 					if (stoi(msgVars[0].c_str()) == player.GetID()) {
 						player.SetVelocity(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()));
+						player.SendPacket(peer);
 					}
 				}
 				else if (Type == "AddKnockback") {
 					if (stoi(msgVars[0].c_str()) == player.GetID()) {
 						player.AddVelocity(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()));
+						player.SendPacket(peer);
 					}
 				}
 				else if (Type == "Chat") {
@@ -640,7 +707,7 @@ int main() {
 					float x = stof(msgVars[0].c_str());
 					float y = stof(msgVars[1].c_str());
 					float dir = stof(msgVars[2].c_str());
-					int speed = stoi(msgVars[3].c_str());
+					float speed = stof(msgVars[3].c_str());
 					int type = stoi(msgVars[4].c_str());
 					int ID = stoi(msgVars[5].c_str());
 					bullets.push_back(client_bullet(x, y, dir, type, speed, ID, bulletImages[type]));
@@ -656,7 +723,10 @@ int main() {
 							soundManager.PlaySample("TripleShot.wav");
 							break;
 						case 3:
-							soundManager.PlaySample("Laser.wav");
+							soundManager.PlaySample("Magnet.wav");
+							break;
+						case 4:
+							soundManager.PlaySample("TripleShot.wav");
 							break;
 					}
 				}
@@ -688,12 +758,16 @@ int main() {
 									particles.push_back(client_particle(bullets[i].GetX() + bullets[i].GetImageSize() / 2, bullets[i].GetY() + bullets[i].GetImageSize() / 2, 255, 255, 255, 1, rand() % 10 + 10, 0, (rand() % 361 - 180) * (M_PI / 180), rand() % 200 * .01));
 								}
 							}
-							else if (bullets[i].GetType() == 2) {
+							else if (bullets[i].GetType() == 2 || bullets[i].GetType() == 4) {
 								int amount = rand() % 5 + 10;
 								for (int j = 0; j < amount; j++) {
 									particles.push_back(client_particle(bullets[i].GetX() + bullets[i].GetImageSize() / 2, bullets[i].GetY() + bullets[i].GetImageSize() / 2, 255, rand() % 255, 0, 1, rand() % 10 + 10, 0, (rand() % 361 - 180) * (M_PI / 180), rand() % 200 * .01));
 								}
 							}
+
+							//if (bullets[i].GetType() != 3)
+							//	soundManager.PlaySample("BulletBreak.wav");
+
 							bullets.erase(bullets.begin() + i);
 							break;
 						}
@@ -784,10 +858,59 @@ int main() {
 					enet_peer_disconnect(peer, 0);
 				}
 				else if (Type == "ResetGame") {
-					ResetGame(player, gameState, peer, players, bullets, particles, effects, asteroids, items);
+					ResetGame(player, gameState, peer, players, bullets, particles, effects, asteroids, items, enemies);
 					player.SendPacket(peer);
 					cout << "Reset Game" << endl;
 				}
+				else if (Type == "NewEnemy") {
+					int ID = stoi(msgVars[0].c_str());
+					float x = stof(msgVars[1].c_str());
+					float y = stof(msgVars[2].c_str());
+					float dir = stof(msgVars[3].c_str());
+					float shootDir = stof(msgVars[4].c_str());
+					float maxHealth = stof(msgVars[5].c_str());
+
+					enemies.push_back(client_enemy(ID, x, y, dir, shootDir, maxHealth, enemyImage));
+
+					soundManager.PlaySample("Alarm.wav", 1);
+				}
+				else if (Type == "EnemyUpdate") {
+					int ID = stoi(msgVars[0].c_str());
+					float x = stof(msgVars[1].c_str());
+					float y = stof(msgVars[2].c_str());
+					float dir = stof(msgVars[3].c_str());
+					float shootDir = stof(msgVars[4].c_str());
+					float health = stof(msgVars[5].c_str());
+
+					for (unsigned i = 0; i < enemies.size(); i++) {
+						if (enemies[i].GetID() == ID) {
+							enemies[i].PacketUpdate(x, y, dir, shootDir, health);
+						}
+					}
+				}
+				else if (Type == "EnemyHurt") {
+					soundManager.PlaySample("Hurt.wav");
+				}
+				else if (Type == "EraseEnemy") {
+					int ID = stoi(msgVars[0].c_str());
+					for (unsigned i = 0; i < enemies.size(); i++) {
+						if (enemies[i].GetID() == ID) {
+							
+							for (int j = 0; j < 10; j++)
+								effects.push_back(client_effect(enemies[i].GetX() - 32 + rand() % 33 - 16, enemies[i].GetY() - 32 + rand() % 33 - 16, 0, 0, rand() % 5 - 3, 0, explosionImage, soundManager));
+							for (int j = 0; j < 20; j++)
+								effects.push_back(client_effect(enemies[i].GetX(), enemies[i].GetY(), (rand() % 361 - 180) * (M_PI / 180), 3 + rand() % 3, rand() % 20 + 10, 1, flameImage, soundManager));
+							for (int j = 0; j < 5000; j++)
+								particles.push_back(client_particle(enemies[i].GetX(), enemies[i].GetY(), 255, rand() % 255, 0, 1, rand() % 30, rand() % 2, rand() % 360 * (M_PI / 180), 3 + rand() % 200 * .01));
+							
+							enemies.erase(enemies.begin() + i);
+							soundManager.PlaySample("EnemyDeath.wav", 1);
+
+							break;
+						}
+					}
+				}
+
 				enet_packet_destroy(event.packet);
 			}
 
@@ -832,6 +955,8 @@ int main() {
 							bullet.Draw(display, showInfo);
 						for (auto player : players)
 							player.Draw(display, font7, font18, showInfo);
+						for (auto enemy : enemies)
+							enemy.Draw();
 
 						player.Draw(display, font18, showInfo);
 
@@ -955,7 +1080,7 @@ void InitMenus(vector<Menu>& menus, ALLEGRO_FONT *font40, ALLEGRO_FONT *font18) 
 	menus.push_back(disconnectMenu);
 }
 
-void ResetGame(client_player& player, int& gameState, ENetPeer* peer, vector<client_other_player>& players, vector<client_bullet>& bullets, vector<client_particle>& particles, vector<client_effect>& effects, vector<client_asteroid>& asteroids, vector<client_item>& items) {
+void ResetGame(client_player& player, int& gameState, ENetPeer* peer, vector<client_other_player>& players, vector<client_bullet>& bullets, vector<client_particle>& particles, vector<client_effect>& effects, vector<client_asteroid>& asteroids, vector<client_item>& items, vector<client_enemy> &enemies) {
 	gameState = 0;
 
 	bullets.clear();
@@ -964,6 +1089,7 @@ void ResetGame(client_player& player, int& gameState, ENetPeer* peer, vector<cli
 	player.Reset(SCREEN_WIDTH, SCREEN_HEIGHT);
 	asteroids.clear();
 	items.clear();
+	enemies.clear();
 
 	for (auto& otherPlayer : players)
 		otherPlayer.Reset();
@@ -1053,7 +1179,7 @@ void DrawChat(vector<ChatMessage>& chat, ALLEGRO_FONT* font18, client_player pla
 void LoadConfig(string &ip, int& loadPort, string &username) {
 	string file;
 	vector<string> fileLines;
-	fstream config("Client Config.txt");
+	fstream config("Resources/Client Config.txt");
 	if (config.good()) {
 		while (!config.eof()) {
 			getline(config, file);
@@ -1064,19 +1190,21 @@ void LoadConfig(string &ip, int& loadPort, string &username) {
 	}
 	else {
 		cout << "Unable to find file..." << endl;
-		cout << "Created config file. Enter information into config and restart" << endl;
+		cout << "Created config file. Reloading file now..." << endl;
 		ofstream config;
-		config.open("Client Config.txt");
+		config.open("Resources/Client Config.txt");
 		config << "IP:123.123.123.123\n";
 		config << "Port:12345\n";
-		config << "Username:username";
+		config << "Username:User" + to_string(100 + rand() % 800) + "\n";
+		config << "Show Console:0";
 		config.close();
-		cout << "Press any key to exit..." << endl;
+		/*cout << "Press any key to exit..." << endl;
 		system("pause>nul");
-		exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);*/
+
+		LoadConfig(ip, loadPort, username);
 	}
 
-	int fileLine = 0;
 	for (unsigned int i = 0; i < fileLines.size(); i++) {
 		istringstream ss(fileLines[i]);
 		string token;
@@ -1092,15 +1220,19 @@ void LoadConfig(string &ip, int& loadPort, string &username) {
 					ip = value;
 				else if (key == "Port")
 					loadPort = stoi(value.c_str());
-				if (key == "Username")
+				else if (key == "Username")
 					username = value;
+				else if (key == "Show Console") {
+					if (stoi(value))
+						ShowWindow(GetConsoleWindow(), SW_SHOW);
+					else
+						ShowWindow(GetConsoleWindow(), SW_HIDE);
+				}
 			}
 			catch (...) {
 				cout << "Error with config" << endl;
 			}
 		}
-
-
 	}
 
 	cout << "Config loaded   " << "IP:'" << ip << "' Port:'" << loadPort << "' Username:'" << username << "'" << endl;

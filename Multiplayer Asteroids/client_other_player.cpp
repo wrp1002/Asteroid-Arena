@@ -7,30 +7,152 @@ client_other_player::client_other_player(int ID, float x, float y, float dir, st
 	this->y = y;
 	this->dir = dir;
 	this->name = name;
-	this->image = image;
-	this->maxHealth = maxHealth;
-	this->health = maxHealth;
 	this->color = color;
-
+	this->maxHealth = maxHealth;
+	startingHealth = maxHealth;
+	this->image = image;
 	this->wins = wins;
-	this->boost = false;
-	won = false;
+	
+
+	keys[UP] = false;
+	keys[DOWN] = false;
+	keys[LEFT] = false;
+	keys[RIGHT] = false;
+	keys[TAB] = false;
+	keys[SHOOT] = false;
+
+
+	velX = 0;
+	velY = 0;
+	maxSpeed = 12;
+	turnSpeed = 4;
+	boostSpeed = 1;
+	boostSpeedMax = 1.5;
+	maxHealth = startingHealth;
+	health = maxHealth;
 	radius = 8;
-	alive = true;
+	dir = 0;
+	wins = 0;
+	weapon = 0;
+	name = "Null";
 	shield = false;
+	ready = false;
+	authorized = false;
+	boost = false;
+	boostFull = true;
+	chargeNumMax = 100;
+	chargeNum = chargeNumMax;
+	accSpeed = 1.75;
+
+	won = false;
+	alive = true;
+	moving = false;
 }
 
-void client_other_player::PacketUpdate(float x, float y, float dir, float health, bool moving, bool boost, bool shield) {
+void client_other_player::PacketUpdate(float x, float y, float velX, float velY, float dir, int up, int left, int right, int boost) {
 	this->x = x;
 	this->y = y;
+	this->velX = velX;
+	this->velY = velY;
 	this->dir = dir;
-	this->health = health;
-	this->moving = moving;
-	this->boost = boost;
-	this->shield = shield;
+	keys[UP] = up;
+	keys[LEFT] = left;
+	keys[RIGHT] = right;
+	keys[BOOST] = boost;
+	
 }
 
 void client_other_player::Update(vector<client_particle>& particles, vector<client_effect>& effects, ALLEGRO_BITMAP* explosionImage, ALLEGRO_BITMAP* flameImage, SoundManager &soundManager) {
+	x += velX;
+	y += velY;
+
+
+	if (keys[UP])
+		moving = true;
+	else
+		moving = false;
+
+	if (keys[LEFT])
+		dir -= turnSpeed;
+	if (keys[RIGHT])
+		dir += turnSpeed;
+
+	if (keys[BOOST] && boostFull && moving) {
+		if (!boost) {
+			boostSpeed = 1;
+			boost = true;
+		}
+		chargeNum -= 1;
+	}
+	else if (boost) {
+		boost = false;
+		boostFull = false;
+		boostSpeed = 1;
+	}
+
+	if (chargeNum <= 0 && boost) {
+		boost = false;
+		boostFull = false;
+	}
+
+	if (!boost && chargeNum < chargeNumMax) {
+		chargeNum += .25;
+		if (chargeNum == chargeNumMax)
+			boostFull = true;
+	}
+
+	if (boost)
+		boostSpeed += .125;
+	else {
+		boostSpeed = 1;
+	}
+
+	if (moving) {
+		velX += boostSpeed * accSpeed * cos((dir * (M_PI / 180))) / 30;
+		velY += boostSpeed * accSpeed * sin((dir * (M_PI / 180))) / 30;
+	}
+	else {
+		if (velX > 0) {
+			velX -= .025;
+			if (velX < .05)
+				velX = 0;
+		}
+		else if (velX < 0) {
+			velX += .025;
+			if (velX > -.05)
+				velX = 0;
+		}
+		if (velY > 0) {
+			velY -= .025;
+			if (velY < .05)
+				velY = 0;
+		}
+		else if (velY < 0) {
+			velY += .025;
+			if (velY > -.05)
+				velY = 0;
+		}
+	}
+
+	if (velX > maxSpeed)
+		velX = maxSpeed;
+	else if (velX < -maxSpeed)
+		velX = -maxSpeed;
+	if (velY > maxSpeed)
+		velY = maxSpeed;
+	else if (velY < -maxSpeed)
+		velY = -maxSpeed;
+
+	if (x < -16)
+		x = 816;
+	else if (x > 816)
+		x = -16;
+	if (y < -16)
+		y = 616;
+	else if (y > 616)
+		y = -16;
+
+
 	if (moving && health > 0) {
 		particles.push_back(client_particle(x - 6 * cos(dir * (M_PI / 180)), y - 6 * sin(dir * (M_PI / 180)), 255, rand() % 255, 0, 1, rand() % 10 + 10, rand() % 3, dir * (M_PI / 180) + (rand() % 61 - 30) * (M_PI / 180) + M_PI, rand() % 100 * .01));
 		if (boost)
@@ -54,6 +176,14 @@ void client_other_player::Update(vector<client_particle>& particles, vector<clie
 				effects.push_back(client_effect(x, y, rand() % 361 * (M_PI / 180), rand() % 10 * .1, rand() % 10 + 10, 1, flameImage, soundManager));
 			}
 		}
+	}
+
+	if (alive) {
+		if (moving && rand() % 3 == 0)
+			soundManager.PlaySample("Move.wav");
+
+		if (boost && rand() % 3 == 0)
+			soundManager.PlaySample("Boost.wav");
 	}
 }
 
@@ -89,7 +219,6 @@ void client_other_player::Win(int wins) {
 void client_other_player::Reset() {
 	won = false;
 	alive = true;
-	maxHealth = newHealth;
 	health = maxHealth;
 }
 
@@ -102,5 +231,12 @@ bool client_other_player::GetAlive() { return alive; }
 bool client_other_player::GetMoving() { return moving; }
 bool client_other_player::GetShield() { return shield; }
 string client_other_player::GetName() { return name; }
-void client_other_player::SetNewHealth(float newHealth) { this->newHealth = newHealth; }
-void client_other_player::SetStartingHealth(float health) { this->maxHealth = health; this->health = this->maxHealth; this->newHealth = health; }
+void client_other_player::SetStartingHealth(float health) { this->maxHealth = health; this->health = this->maxHealth;  }
+
+void client_other_player::SetHealth(float h) {
+	health = h;
+}
+
+void client_other_player::SetShield(bool s) {
+	shield = s;
+}

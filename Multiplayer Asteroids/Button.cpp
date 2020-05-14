@@ -27,6 +27,11 @@ bool Button::Clicked(int mouseX, int mouseY) {
 	return (mouseX > x - width / 2 && mouseX < x + width / 2 && mouseY > y && mouseY < y + height);
 }
 
+bool Button::IsHovering()
+{
+	return hovering;
+}
+
 string Button::GetName(){
 	return name;
 }

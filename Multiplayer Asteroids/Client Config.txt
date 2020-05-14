@@ -1,3 +1,0 @@
-IP:12.453.23.654
-Port:12232
-Username:Wes

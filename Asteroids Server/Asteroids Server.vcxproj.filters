@@ -30,6 +30,9 @@
     <ClCompile Include="server_item.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="server_enemy.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="server_globals.h">
@@ -45,6 +48,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="server_item.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="server_enemy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

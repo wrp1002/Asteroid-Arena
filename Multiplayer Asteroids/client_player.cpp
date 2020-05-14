@@ -176,14 +176,22 @@ void client_player::Update(vector<client_particle>& particles, vector<client_eff
 		if (moving && health > 0) {
 			particles.push_back(client_particle(x - 6 * cos(dir * (M_PI / 180)), y - 6 * sin(dir * (M_PI / 180)), 255, rand() % 255, 0, 1, rand() % 10 + 10, rand() % 3, dir * (M_PI / 180) + (rand() % 91 - 45) * (M_PI / 180) + M_PI, rand() % 100 * .01));
 			if (boost)
-				effects.push_back(client_effect(x - 4 - 6 * cos(dir * (M_PI / 180)), y - 4 - 6 * sin(dir * (M_PI / 180)), dir * (M_PI / 180) + (rand() % 31 - 15) * (M_PI / 180) + M_PI, rand() % 50 * .01 + 6, rand() % 5 + 5, 1, flameImage, soundManager));
+				effects.push_back(client_effect(x - 6 * cos(dir * (M_PI / 180)), y - 6 * sin(dir * (M_PI / 180)), dir * (M_PI / 180) + (rand() % 31 - 15) * (M_PI / 180) + M_PI, rand() % 50 * .01 + 6, rand() % 5 + 5, 1, flameImage, soundManager));
 		}
 
-		if (health <= maxHealth * .4) {
+		if (health <= maxHealth * .5) {
 			if (rand() % 10 * health == 0) {
 				effects.push_back(client_effect(x, y, rand() % 361 * (M_PI / 180), rand() % 10 * .1, rand() % 10 + 10, 1, flameImage, soundManager));
 			}
 		}
+	}
+
+	if (alive) {
+		if (moving && rand() % 3 == 0)
+			soundManager.PlaySample("Move.wav");
+
+		if (boost && rand() % 3 == 0)
+			soundManager.PlaySample("Boost.wav");
 	}
 }
 
@@ -211,7 +219,8 @@ void client_player::Draw(ALLEGRO_DISPLAY* display, ALLEGRO_FONT* font, bool show
 
 void client_player::SendPacket(ENetPeer* peer) {
 	char packet[256];
-	int packetlen = sprintf_s(packet, sizeof(packet), "PlayerUpdate,%i,%f,%f,%f,%i,%i", ID, x, y, dir, moving, boost);
+	//int packetlen = sprintf_s(packet, sizeof(packet), "PlayerUpdate,%i,%f,%f,%f,%i,%i", ID, x, y, dir, moving, boost);
+	int packetlen = sprintf_s(packet, sizeof(packet), "PlayerUpdate,%i,%f,%f,%f,%f,%f,%i,%i,%i,%i", ID, x, y, velX, velY, dir, keys[UP], keys[LEFT], keys[RIGHT], keys[BOOST]);
 	ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, NULL);
 	enet_peer_send(peer, 0, p);
 }
@@ -243,6 +252,7 @@ void client_player::Reset(int screenWidth, int screenHeight) {
 	bulletTimer = 0;
 	chargeNum = chargeNumMax;
 	maxHealth = newHealth;
+	health = maxHealth;
 }
 
 void client_player::ChangeWeapon(int newWeapon) {

@@ -7,6 +7,7 @@
 #include <vector>
 #include "Button.h"
 #include "client_globals.h"
+#include "SoundManager.h"
 
 using namespace std;
 
@@ -23,7 +24,7 @@ private:
 public:
 	Menu(string title, ALLEGRO_FONT *titleFont, ALLEGRO_FONT *buttonFont);
 
-	void Update(int mouseX, int mouseY);
+	void Update(int mouseX, int mouseY, SoundManager &soundManager);
 	void Draw();
 
 	void AddButton(string name, string text, bool enabled = true);

@@ -20,7 +20,7 @@ SoundManager::SoundManager() {
 		system("pause");
 	}
 
-	printf("Loaded images and audio!\n");
+	printf("Loaded audio!\n");
 }
 
 
@@ -34,7 +34,7 @@ void SoundManager::PlaySample(string name, float speed) {
 	if (speed == -1)
 		speed = 1.0 + (rand() % 25 - 12) * .01;
 
-	printf("Playing '%s'\n", name.c_str());
+	//printf("Playing '%s'\n", name.c_str());
 	if (audio[name])
 		al_play_sample(audio[name], 1, 0, speed, ALLEGRO_PLAYMODE_ONCE, NULL);
 	else

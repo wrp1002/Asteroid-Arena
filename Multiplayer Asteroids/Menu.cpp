@@ -10,9 +10,13 @@ Menu::Menu(string title, ALLEGRO_FONT* titleFont, ALLEGRO_FONT* buttonFont) {
 	enabled = false;
 }
 
-void Menu::Update(int mouseX, int mouseY) {
-	for (auto &button : buttons)
+void Menu::Update(int mouseX, int mouseY, SoundManager& soundManager) {
+	for (auto& button : buttons) {
+		bool before = button.IsHovering();
 		button.Update(mouseX, mouseY);
+		if (!before && button.IsHovering())
+			soundManager.PlaySample("Hover.wav", 1);
+	}
 }
 
 void Menu::Draw() {

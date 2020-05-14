@@ -96,6 +96,11 @@ int server_asteroid::GetID()
 	return ID;
 }
 
+int server_asteroid::GetSize()
+{
+	return size;
+}
+
 float server_asteroid::GetX()
 {
 	return x;

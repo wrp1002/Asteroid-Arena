@@ -14,16 +14,17 @@
 #include "server_bullet.h"
 #include "server_asteroid.h"
 #include "server_item.h"
+#include "server_enemy.h"
 
 using namespace std;
 
 const int screenWidth = 800, screenHeight = 600;
 bool restartGame = true;
 
-void UpdateGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth);
-void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server);
-void CleanUp(vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server, int& asteroidIDNum);
-void ResetGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth);
+void UpdateGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy>& enemies, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth);
+void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy>& enemies, int& enemyIDNum, ENetHost* server);
+void CleanUp(vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy> &enemies, ENetHost* server, int& asteroidIDNum, int& itemIDNum);
+void ResetGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy> &enemies, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth);
 void SpawnAsteroids(vector<server_asteroid>& asteroids, ENetHost* server, int& asteroidIDNum);
 void NewAsteroid(vector<server_asteroid>& asteroids, int x, int y, int moveDir, int size, int& asteroidIDNum, ENetHost* server);
 void SpawnItems(vector<server_item>& items, int& itemSpawnTimer, int& itemIDNum, ENetHost* server);
@@ -31,11 +32,9 @@ void SpawnItems(vector<server_item>& items, int& itemSpawnTimer, int& itemIDNum,
 void SendChat(string message, int r, int g, int b, ENetHost* server);
 void MessagePlayer(string message, int r, int g, int b, ENetHost* server, int playerID);
 
-void LoadConfig(int& maxPlayers, int& startingHealth);
+void LoadConfig(int& maxPlayers, int& startingHealth, int &port);
 void SaveConfig(int maxPlayers, int startingHealth);
 
-float GetAngle(float x1, float y1, float x2, float y2);
-float GetDistance(float x1, float y1, float x2, float y2);
 void ClearScreen();
 string generatePassword();
 bool IsNumber(string n);
@@ -61,17 +60,21 @@ int main() {
 		int bulletIDNum = 0;
 		int asteroidIDNum = 0;
 		int itemIDNum = 0;
+		int enemyIDNum = 0;
 		int maxPlayers = 4;
 		int startingHealth = 5;
 		string password = generatePassword();
 		cout << "Password: " << password << endl;
 
-		LoadConfig(maxPlayers, startingHealth);
+		int port = 12345;
+
+		LoadConfig(maxPlayers, startingHealth, port);
 
 		vector<server_player> players;
 		vector<server_bullet> bullets;
 		vector<server_asteroid> asteroids;
 		vector<server_item> items;
+		vector<server_enemy> enemies;
 
 		system("title Shooter Server");
 
@@ -84,7 +87,7 @@ int main() {
 		ENetEvent event;
 
 		address.host = ENET_HOST_ANY;
-		address.port = 12232;
+		address.port = port;
 		server = enet_host_create(&address, 32, 1, 0, 0);
 
 		if (address.port != NULL)
@@ -113,7 +116,7 @@ int main() {
 			al_wait_for_event(event_queue, &ev);
 
 			if (ev.type == ALLEGRO_EVENT_TIMER) {
-				UpdateGame(gameState, countDown, startTimer, startTimerStart, players, bullets, asteroids, items, server, resetCount, resetTimerStart, resetTimer, startingHealth);
+				UpdateGame(gameState, countDown, startTimer, startTimerStart, players, bullets, asteroids, items, enemies, server, resetCount, resetTimerStart, resetTimer, startingHealth);
 
 				for (auto& bullet : bullets)
 					bullet.Update();
@@ -123,24 +126,31 @@ int main() {
 					item.Update(screenWidth, screenHeight);
 				for (auto& player : players)
 					player.Update();
+				for (auto& enemy : enemies)
+					enemy.Update(players, asteroids, bullets, bulletIDNum, server);
 
 				if (gameState == 1 && !resetCount) {
-					Collide(players, bullets, asteroids, items, server);
+					Collide(players, bullets, asteroids, items, enemies, enemyIDNum, server);
 					if (asteroids.size() < 10 && rand() % 60 == 0)
 						SpawnAsteroids(asteroids, server, asteroidIDNum);
 					SpawnItems(items, itemSpawnTimer, itemIDNum, server);
+
+					/*if (rand() % 50000 == 0) {
+						enemies.push_back(server_enemy(enemyIDNum, server));
+						enemyIDNum++;
+					}*/
 				}
 
-				CleanUp(bullets, asteroids, items, server, asteroidIDNum);
+				CleanUp(bullets, asteroids, items, enemies, server, asteroidIDNum, itemIDNum);
 
 				playerUpdateTimer--;
 				if (playerUpdateTimer <= 0) {
 					playerUpdateTimer = playerUpdateTimerStart;
 					for (unsigned int i = 0; i < players.size(); i++) {
-						char packet[256];
+						/*char packet[256];
 						sprintf_s(packet, sizeof(packet), "PlayerUpdate,%i,%f,%f,%f,%f,%i,%i,%i", players[i].GetID(), players[i].GetX(), players[i].GetY(), players[i].GetDir(), players[i].GetHealth(), players[i].GetMoving(), players[i].GetBoost(), players[i].GetShield());
 						ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
-						enet_host_broadcast(server, 0, p);
+						enet_host_broadcast(server, 0, p);*/
 					}
 				}
 				if (shutdown && players.size() == 0)
@@ -204,7 +214,7 @@ int main() {
 
 				case ENET_EVENT_TYPE_RECEIVE:
 				{
-					//printf("Recieved a packet containing %s\n", event.packet->data);
+					printf("Recieved a packet containing %s\n", event.packet->data);
 					int messageCount = 0;
 					string Type;
 					char message[100];
@@ -230,9 +240,10 @@ int main() {
 
 						for (unsigned int i = 0; i < players.size(); i++) {
 							if (players[i].GetID() == ID) {
-								players[i].PacketUpdate(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stoi(msgVars[4].c_str()), stoi(msgVars[5].c_str()));
+								players[i].PacketUpdate(stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stof(msgVars[4].c_str()), stof(msgVars[5].c_str()), stoi(msgVars[6].c_str()), stoi(msgVars[7].c_str()), stoi(msgVars[8].c_str()), stoi(msgVars[9].c_str()));
+
 								char packet[256];
-								sprintf_s(packet, sizeof(packet), "PlayerUpdate,%i,%f,%f,%f,%f,%i,%i,%i", players[i].GetID(), players[i].GetX(), players[i].GetY(), players[i].GetDir(), players[i].GetHealth(), players[i].GetMoving(), players[i].GetBoost(), players[i].GetShield());
+								sprintf_s(packet, sizeof(packet), "PlayerUpdate,%i,%f,%f,%f,%f,%f,%i,%i,%i,%i", stoi(msgVars[0].c_str()), stof(msgVars[1].c_str()), stof(msgVars[2].c_str()), stof(msgVars[3].c_str()), stof(msgVars[4].c_str()), stof(msgVars[5].c_str()), stoi(msgVars[6].c_str()), stoi(msgVars[7].c_str()), stoi(msgVars[8].c_str()), stoi(msgVars[9].c_str()));
 								ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, NULL);
 								enet_host_broadcast(server, 0, p);
 								//cout << "ID:" << players[i].ID << " X:" << players[i].x << " Y:" << players[i].y << " Charging:" << players[i].charging << endl;
@@ -325,6 +336,7 @@ int main() {
 											commands.push_back("/asteroids - Spawn Asteroids");
 											commands.push_back("/items - Spawn Items");
 											commands.push_back("/weapon - <Weapon ID>");
+											commands.push_back("/enemy - Spawn enemy");
 
 											for (unsigned i = 0; i < commands.size(); i++)
 												MessagePlayer(commands[i], 255, 255, 255, server, players[j].GetID());
@@ -380,7 +392,7 @@ int main() {
 												for (unsigned i = 0; i < players.size(); i++) {
 													//cout << "Setting health to " << startingHealth << endl;
 													players[i].SetStartingHealth(startingHealth);
-													players[i].SetHealth(startingHealth);
+													players[i].SetHealth(startingHealth, server);
 												}
 											}
 										}
@@ -400,6 +412,12 @@ int main() {
 												itemSpawnTimer = 0;
 												SpawnItems(items, itemSpawnTimer, itemIDNum, server);
 											}
+										}
+										else if (commandVars[0] == "enemy") {
+											enemies.push_back(server_enemy(enemyIDNum, server));
+											enemyIDNum++;
+
+											MessagePlayer("Spawned enemy!", 255, 255, 255, server, players[j].GetID());
 										}
 										else if (commandVars[0] == "weapon") {
 											if (commandVars.size() != 2 || !IsNumber(commandVars[1])) {
@@ -439,44 +457,85 @@ int main() {
 						for (unsigned int i = 0; i < players.size(); i++) {
 							if (players[i].GetID() == ID) {
 								if (players[i].GetWeapon() == 0) {
-									int speed = 5;
+									
 									float x = players[i].GetX() + 5 * cos(players[i].GetDir() * (M_PI / 180));
 									float y = players[i].GetY() + 5 * sin(players[i].GetDir() * (M_PI / 180));
 
-									bullets.push_back(server_bullet(x, y, -players[i].GetDir() * (M_PI / 180), speed, 40, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
+									float speed = 5;
+
+									float playerVelX = players[i].GetVelX();
+									float playerVelY = players[i].GetVelY();
+
+									float bulletDir = -players[i].GetDir() * (M_PI / 180);
+									float bulletVelX = speed * cos(bulletDir);
+									float bulletVelY = speed * sin(bulletDir);
+
+									bulletVelX += playerVelX;
+									bulletVelY -= playerVelY;																		
+
+									float bulletSpeed = sqrt(bulletVelX * bulletVelX + bulletVelY * bulletVelY);
+
+
+									bullets.push_back(server_bullet(x, y, bulletDir, bulletSpeed, 40, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
 
 									char packet[256];
-									sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%i,%i,%i", x, y, -players[i].GetDir() * (M_PI / 180), speed, players[i].GetWeapon(), bulletIDNum);
+									sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%f,%i,%i", x, y, bulletDir, bulletSpeed, players[i].GetWeapon(), bulletIDNum);
 									ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 									enet_host_broadcast(server, 0, p);
 								}
 								else if (players[i].GetWeapon() == 1) {
-									int speed = 4;
 									float x = players[i].GetX() + 5 * cos(players[i].GetDir() * (M_PI / 180));
 									float y = players[i].GetY() + 5 * sin(players[i].GetDir() * (M_PI / 180));
 
-									bullets.push_back(server_bullet(x, y, -players[i].GetDir() * (M_PI / 180), speed, 30, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
+									float speed = 5;
+
+									float playerVelX = players[i].GetVelX();
+									float playerVelY = players[i].GetVelY();
+
+									float bulletDir = -players[i].GetDir() * (M_PI / 180);
+									float bulletVelX = speed * cos(bulletDir);
+									float bulletVelY = speed * sin(bulletDir);
+
+									bulletVelX += playerVelX;
+									bulletVelY -= playerVelY;
+
+									float bulletSpeed = sqrt(bulletVelX * bulletVelX + bulletVelY * bulletVelY);
+
+									bullets.push_back(server_bullet(x, y, bulletDir, bulletSpeed, 40, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
 
 									char packet[256];
-									sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%i,%i,%i", x, y, -players[i].GetDir() * (M_PI / 180), speed, players[i].GetWeapon(), bulletIDNum);
+									sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%f,%i,%i", x, y, bulletDir, bulletSpeed, players[i].GetWeapon(), bulletIDNum);
 									ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 									enet_host_broadcast(server, 0, p);
 								}
-								else if (players[i].GetWeapon() == 2) {
+								else if (players[i].GetWeapon() == 2 || players[i].GetWeapon() == 4) {
 									for (float k = -.25; k <= .25; k += .25) {
 										int amount = 5;
-										float dir = -players[i].GetDir() * (M_PI / 180) + k;
+										float bulletDir = -players[i].GetDir() * (M_PI / 180) + k;
 										if (k == 0)
 											amount = 8;
-
-										int speed = 4;
+										
 										float x = players[i].GetX() + amount * cos(players[i].GetDir() * (M_PI / 180));
 										float y = players[i].GetY() + amount * sin(players[i].GetDir() * (M_PI / 180));
 
-										bullets.push_back(server_bullet(x, y, dir, speed, 25, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
+										float speed = 5;
+
+										float playerVelX = players[i].GetVelX();
+										float playerVelY = players[i].GetVelY();
+
+										float bulletVelX = speed * cos(bulletDir);
+										float bulletVelY = speed * sin(bulletDir);
+
+										bulletVelX += playerVelX;
+										bulletVelY -= playerVelY;
+
+										float bulletSpeed = sqrt(bulletVelX * bulletVelX + bulletVelY * bulletVelY);
+
+
+										bullets.push_back(server_bullet(x, y, bulletDir, bulletSpeed, 40, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
 
 										char packet[256];
-										sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%i,%i,%i", x, y, dir, speed, players[i].GetWeapon(), bulletIDNum);
+										sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%f,%i,%i", x, y, bulletDir, bulletSpeed, players[i].GetWeapon(), bulletIDNum);
 										ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 										enet_host_broadcast(server, 0, p);
 
@@ -484,14 +543,27 @@ int main() {
 									}
 								}
 								else if (players[i].GetWeapon() == 3) {
-									int speed = 4;
 									float x = players[i].GetX() + 5 * cos(players[i].GetDir() * (M_PI / 180));
 									float y = players[i].GetY() + 5 * sin(players[i].GetDir() * (M_PI / 180));
 
-									bullets.push_back(server_bullet(x, y, -players[i].GetDir() * (M_PI / 180), speed, 60, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
+									float speed = 5;
+
+									float playerVelX = players[i].GetVelX();
+									float playerVelY = players[i].GetVelY();
+
+									float bulletDir = -players[i].GetDir() * (M_PI / 180);
+									float bulletVelX = speed * cos(bulletDir);
+									float bulletVelY = speed * sin(bulletDir);
+
+									bulletVelX += playerVelX;
+									bulletVelY -= playerVelY;
+
+									float bulletSpeed = sqrt(bulletVelX * bulletVelX + bulletVelY * bulletVelY);
+
+									bullets.push_back(server_bullet(x, y, bulletDir, bulletSpeed, 40, players[i].GetWeapon(), bulletIDNum, players[i].GetID()));
 
 									char packet[256];
-									sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%i,%i,%i", x, y, -players[i].GetDir() * (M_PI / 180), speed, players[i].GetWeapon(), bulletIDNum);
+									sprintf_s(packet, sizeof(packet), "NewBullet,%f,%f,%f,%f,%i,%i", x, y, bulletDir, bulletSpeed, players[i].GetWeapon(), bulletIDNum);
 									ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 									enet_host_broadcast(server, 0, p);
 								}
@@ -538,7 +610,7 @@ int main() {
 	}
 }
 
-void UpdateGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth) {
+void UpdateGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy> &enemies, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth) {
 	if (gameState == 0 && players.size() > 0 && countDown == false) {
 		int readyNum = 0;
 
@@ -579,7 +651,7 @@ void UpdateGame(int& gameState, bool& countDown, int& startTimer, int startTimer
 			ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 			enet_host_broadcast(server, 0, p);
 
-			ResetGame(gameState, countDown, startTimer, startTimerStart, players, bullets, asteroids, items, server, resetCount, resetTimerStart, resetTimer, startingHealth);
+			ResetGame(gameState, countDown, startTimer, startTimerStart, players, bullets, asteroids, items, enemies, server, resetCount, resetTimerStart, resetTimer, startingHealth);
 			cout << "Resetting game...\n";
 		}
 	}
@@ -614,7 +686,7 @@ void UpdateGame(int& gameState, bool& countDown, int& startTimer, int startTimer
 	}
 }
 
-void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server) {
+void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy> &enemies, int &enemyIDNum, ENetHost* server) {
 	for (unsigned i = 0; i < players.size(); i++) {
 		for (unsigned j = 0; j < players.size(); j++) {
 			if (players[i].GetID() != players[j].GetID() && players[i].GetHealth() > 0 && players[j].GetHealth() > 0) {
@@ -631,7 +703,7 @@ void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vec
 				if (GetDistance(players[i].GetX(), players[i].GetY(), bullets[j].GetX(), bullets[j].GetY()) < players[i].GetRadius() + bullets[j].GetRadius() && bullets[j].GetShotBy() != players[i].GetID()) {
 					if (!players[i].GetShield()) {
 						if (bullets[j].GetActive())
-							players[i].SetHealth(players[i].GetHealth() - bullets[j].GetDamage());
+							players[i].SetHealth(players[i].GetHealth() - bullets[j].GetDamage(), server);
 
 						if (bullets[j].GetType() != 3) {
 							char packet[256];
@@ -647,7 +719,7 @@ void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vec
 						}
 					}
 					else {
-						players[i].SetShield(false);
+						players[i].SetShield(false, server);
 						bullets.push_back(server_bullet(players[i].GetX(), players[i].GetY(), 0, 0, 5, 10, -1, -1));
 					}
 					if (bullets[j].GetType() != 3)
@@ -658,14 +730,14 @@ void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vec
 		for (unsigned j = 0; j < asteroids.size(); j++) {
 			if (GetDistance(players[i].GetX(), players[i].GetY(), asteroids[j].GetX(), asteroids[j].GetY()) < players[i].GetRadius() + asteroids[j].GetRadius()) {
 				if (!players[i].GetShield()) {
-					players[i].SetHealth(players[i].GetHealth() - 1);
+					players[i].SetHealth(players[i].GetHealth() - 1, server);
 					char packet[256];
 					sprintf_s(packet, sizeof(packet), "SetKnockback,%i,%f,%f", players[i].GetID(), 3.0, GetAngle(players[i].GetX(), players[i].GetY(), asteroids[j].GetX(), asteroids[j].GetY()));
 					ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 					enet_host_broadcast(server, 0, p);
 				}
 				else {
-					players[i].SetShield(false);
+					players[i].SetShield(false, server);
 					bullets.push_back(server_bullet(players[i].GetX(), players[i].GetY(), 0, 0, 5, 10, -1, -1));
 				}
 
@@ -736,10 +808,10 @@ void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vec
 		for (unsigned j = 0; j < players.size(); j++) {
 			if (GetDistance(items[i].GetX(), items[i].GetY(), players[j].GetX(), players[j].GetY()) < items[i].GetRadius() + players[j].GetRadius()) {
 				if (items[i].GetType() == 0) {
-					players[j].SetHealth(players[j].GetHealth() + 2);
+					players[j].SetHealth(players[j].GetHealth() + 2, server);
 				}
 				else if (items[i].GetType() == 1) {
-					players[j].SetShield(true);
+					players[j].SetShield(true, server);
 				}
 				else if (items[i].GetType() == 2) {
 					players[j].SetWeapon(1);
@@ -773,14 +845,59 @@ void Collide(vector<server_player>& players, vector<server_bullet>& bullets, vec
 					ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
 					enet_host_broadcast(server, 0, p);
 				}
+				else if (items[i].GetType() == 6) {
+					players[j].SetWeapon(4);
+
+					char packet[256];
+					sprintf_s(packet, sizeof(packet), "Weapon,%i,%i", players[j].GetID(), players[j].GetWeapon());
+					ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
+					enet_host_broadcast(server, 0, p);
+				}
+				else if (items[i].GetType() == 7) {
+					enemies.push_back(server_enemy(enemyIDNum, server));
+					enemyIDNum++;
+				}
+
 				items[i].SendSound(server);
 				items[i].Kill();
 			}
 		}
 	}
+
+
+	for (int i = 0; i < enemies.size(); i++) {
+		for (unsigned j = 0; j < players.size(); j++) {
+			if (GetDistance(enemies[i].GetX(), enemies[i].GetY(), players[j].GetX(), players[j].GetY()) < 16) {
+				enemies[i].SetKnockback(GetAngle(enemies[i].GetX(), enemies[i].GetY(), players[j].GetX(), players[j].GetY()), 1.5);
+			}
+		}
+		for (unsigned j = 0; j < bullets.size(); j++) {
+			if (bullets[j].GetType() != 10) {
+				if (GetDistance(enemies[i].GetX(), enemies[i].GetY(), bullets[j].GetX(), bullets[j].GetY()) < enemies[i].GetRadius() + bullets[j].GetRadius() && bullets[j].GetShotBy() != -1) {
+					if (bullets[j].GetActive())
+						enemies[i].SetHealth(enemies[i].GetHealth() - bullets[j].GetDamage(), server);
+
+					if (bullets[j].GetType() != 3)
+						enemies[i].AddKnockback(bullets[j].GetDir(), 3.5);
+					else
+						enemies[i].AddKnockback(bullets[j].GetDir(), 0.25);
+
+					if (bullets[j].GetType() != 3)
+						bullets[j].Kill();
+				}
+			}
+		}
+		for (unsigned j = 0; j < asteroids.size(); j++) {
+			if (GetDistance(enemies[i].GetX(), enemies[i].GetY(), asteroids[j].GetX(), asteroids[j].GetY()) < enemies[i].GetRadius() + asteroids[j].GetRadius()) {
+				enemies[i].SetHealth(enemies[i].GetHealth() - 1, server);
+				asteroids[j].Kill();
+			}
+		}
+			
+	}
 }
 
-void ResetGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth) {
+void ResetGame(int& gameState, bool& countDown, int& startTimer, int startTimerStart, vector<server_player>& players, vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy> &enemies, ENetHost* server, bool& resetCount, int resetTimerStart, int& resetTimer, int startingHealth) {
 	for (auto& player : players) {
 		player.Reset(startingHealth);
 	}
@@ -795,6 +912,7 @@ void ResetGame(int& gameState, bool& countDown, int& startTimer, int startTimerS
 	bullets.clear();
 	asteroids.clear();
 	items.clear();
+	enemies.clear();
 }
 
 void SpawnAsteroids(vector<server_asteroid>& asteroids, ENetHost* server, int& asteroidIDNum) {
@@ -833,6 +951,14 @@ void SpawnItems(vector<server_item>& items, int& itemSpawnTimer, int& itemIDNum,
 
 		int place = rand() % 4;
 		int x, y;
+		int type = rand() % 7;
+		if (type == 6) {
+			if (rand() % 5 == 0)
+				type = 7;
+			else
+				return;
+		}
+
 		if (place == 0) {
 			x = rand() % screenWidth;
 			y = -(rand() % 30 + 64);
@@ -849,12 +975,12 @@ void SpawnItems(vector<server_item>& items, int& itemSpawnTimer, int& itemIDNum,
 			x = -(rand() % 30 + 64);
 			y = rand() % screenHeight;
 		}
-		items.push_back(server_item(x, y, rand() % 6, itemIDNum, server));
+		items.push_back(server_item(x, y, type, itemIDNum, server));
 		itemIDNum++;
 	}
 }
 
-void CleanUp(vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, ENetHost* server, int& asteroidIDNum) {
+void CleanUp(vector<server_bullet>& bullets, vector<server_asteroid>& asteroids, vector<server_item>& items, vector<server_enemy> &enemies, ENetHost* server, int& asteroidIDNum, int &itemIDNum) {
 	for (unsigned i = 0; i < bullets.size();) {
 		if (bullets[i].GetActive())
 			i++;
@@ -915,6 +1041,42 @@ void CleanUp(vector<server_bullet>& bullets, vector<server_asteroid>& asteroids,
 			items.erase(items.begin() + i);
 		}
 	}
+
+	for (unsigned i = 0; i < enemies.size();) {
+		if (enemies[i].IsActive())
+			i++;
+		else {
+			char packet[256];
+			sprintf_s(packet, sizeof(packet), "EraseEnemy,%i", enemies[i].GetID());
+			ENetPacket* p = enet_packet_create((char*)packet, strlen(packet) + 1, ENET_PACKET_FLAG_RELIABLE);
+			enet_host_broadcast(server, 0, p);
+
+			enemies.erase(enemies.begin() + i);
+
+				
+
+				int place = rand() % 4;
+				int x, y;
+				if (place == 0) {
+					x = rand() % screenWidth;
+					y = -(rand() % 30 + 64);
+				}
+				else if (place == 1) {
+					x = screenWidth + (rand() % 30 + 64);
+					y = rand() % screenHeight;
+				}
+				else if (place == 2) {
+					x = rand() % screenWidth;
+					y = screenHeight + (rand() % 30 + 64);
+				}
+				else if (place == 3) {
+					x = -(rand() % 30 + 64);
+					y = rand() % screenHeight;
+				}
+				items.push_back(server_item(x, y, 6, itemIDNum, server));
+				itemIDNum++;
+		}
+	}
 }
 
 void SendChat(string message, int r, int g, int b, ENetHost* server) {
@@ -931,7 +1093,7 @@ void MessagePlayer(string message, int r, int g, int b, ENetHost* server, int pl
 	enet_host_broadcast(server, 0, p);
 }
 
-void LoadConfig(int& maxPlayers, int& startingHealth) {
+void LoadConfig(int& maxPlayers, int& startingHealth, int &port) {
 	string file;
 	string loadIP;
 	vector<string> fileLines;
@@ -950,29 +1112,36 @@ void LoadConfig(int& maxPlayers, int& startingHealth) {
 		ofstream config;
 		config.open("Server Config.txt");
 		config << "Max Players:4\n";
-		config << "Starting Health:5";
+		config << "Starting Health:5\n";
+		config << "Port:12345";
 		config.close();
 		cout << "Press any key to exit..." << endl;
 		system("pause>nul");
 		exit(EXIT_FAILURE);
 	}
 
-	int fileLine = 0;
 	for (unsigned int i = 0; i < fileLines.size(); i++) {
 		istringstream ss(fileLines[i]);
 		string token;
 		int filePlace = 0;
 
-		while (getline(ss, token, ':')) {
-			if (filePlace == 1) {
-				if (fileLine == 0)
-					maxPlayers = stoi(token.c_str());
-				else if (fileLine == 1)
-					startingHealth = stoi(token.c_str());
+		while (getline(ss, token)) {
+			int split = token.find_first_of(':');
+			string key = token.substr(0, split);
+			string value = token.substr(split + 1, string::npos);
+
+			try {
+				if (key == "Max Players")
+					maxPlayers = stoi(value);
+				else if (key == "Port")
+					port = stoi(value.c_str());
+				else if (key == "Starting Health")
+					startingHealth = stoi(value);
 			}
-			filePlace++;
+			catch (...) {
+				cout << "Error with config" << endl;
+			}
 		}
-		fileLine++;
 	}
 }
 void SaveConfig(int maxPlayers, int startingHealth) {
@@ -983,12 +1152,7 @@ void SaveConfig(int maxPlayers, int startingHealth) {
 	config.close();
 }
 
-float GetAngle(float x1, float y1, float x2, float y2) {
-	return atan2(y1 - y2, x1 - x2);
-}
-float GetDistance(float x1, float y1, float x2, float y2) {
-	return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-}
+
 string generatePassword() {
 	string password = "";
 	for (unsigned i = 0; i < 5; i++) {

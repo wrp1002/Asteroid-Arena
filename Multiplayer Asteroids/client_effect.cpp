@@ -40,7 +40,7 @@ client_effect::client_effect(float x, float y, float dir, float speed, int life,
 
 	if (type == 0) {
 		frame = life;
-		if (rand() % 100 == 0)
+		if (rand() % 70 == 0)
 			soundManager.PlaySample("Explosion" + to_string(1 + rand() % 6) + ".wav");
 	}
 	else if (type == 1) {
@@ -77,7 +77,10 @@ void client_effect::Update(vector<client_effect>& effects, vector<client_particl
 }
 
 void client_effect::Draw(bool showInfo) {
-	al_draw_bitmap_region(image, al_get_bitmap_height(image) * frame, 0, al_get_bitmap_height(image), al_get_bitmap_height(image), x, y, NULL);
+	if (type != 1)
+		al_draw_bitmap_region(image, al_get_bitmap_height(image) * frame, 0, al_get_bitmap_height(image), al_get_bitmap_height(image), x, y, NULL);
+	else
+		al_draw_rotated_bitmap(image, al_get_bitmap_height(image) / 2, al_get_bitmap_height(image) / 2, x, y, dir, NULL);
 }
 
 int client_effect::GetType()

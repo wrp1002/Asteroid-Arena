@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="server_asteroid.cpp" />
     <ClCompile Include="server_bullet.cpp" />
+    <ClCompile Include="server_enemy.cpp" />
     <ClCompile Include="server_item.cpp" />
     <ClCompile Include="Server_Main.cpp" />
     <ClCompile Include="server_player.cpp" />
@@ -28,6 +29,7 @@
   <ItemGroup>
     <ClInclude Include="server_asteroid.h" />
     <ClInclude Include="server_bullet.h" />
+    <ClInclude Include="server_enemy.h" />
     <ClInclude Include="server_globals.h" />
     <ClInclude Include="server_item.h" />
     <ClInclude Include="server_player.h" />

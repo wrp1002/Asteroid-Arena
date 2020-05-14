@@ -17,7 +17,7 @@ private:
 	int imageSize, frame, frameTimer, frameTimerStart, frameDir;
 
 public:
-	client_bullet(float x, float y, float dir, int type, int speed, int ID, ALLEGRO_BITMAP* image);
+	client_bullet(float x, float y, float dir, int type, float speed, int ID, ALLEGRO_BITMAP* image);
 
 	void PacketUpdate(float x, float y, float velX, float velY);
 	void Update(vector<client_particle>& particles);

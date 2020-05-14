@@ -1,7 +1,7 @@
 #include "client_bullet.h"
 
 
-client_bullet::client_bullet(float x, float y, float dir, int type, int speed, int ID, ALLEGRO_BITMAP* image) {
+client_bullet::client_bullet(float x, float y, float dir, int type, float speed, int ID, ALLEGRO_BITMAP* image) {
 	this->x = x;
 	this->y = y;
 	this->dir = dir;

@@ -24,6 +24,7 @@
     <ClCompile Include="client_asteroid.cpp" />
     <ClCompile Include="client_bullet.cpp" />
     <ClCompile Include="client_effect.cpp" />
+    <ClCompile Include="client_enemy.cpp" />
     <ClCompile Include="client_item.cpp" />
     <ClCompile Include="client_other_player.cpp" />
     <ClCompile Include="client_particle.cpp" />
@@ -39,6 +40,7 @@
     <ClInclude Include="client_asteroid.h" />
     <ClInclude Include="client_bullet.h" />
     <ClInclude Include="client_effect.h" />
+    <ClInclude Include="client_enemy.h" />
     <ClInclude Include="client_globals.h" />
     <ClInclude Include="client_item.h" />
     <ClInclude Include="client_other_player.h" />

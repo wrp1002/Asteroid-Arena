@@ -22,6 +22,7 @@ public:
 	void Draw(ALLEGRO_FONT *font);
 
 	bool Clicked(int mouseX, int mouseY);
+	bool IsHovering();
 
 	string GetName();
 	void SetText(string text);

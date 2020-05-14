@@ -25,6 +25,7 @@ public:
 	int GetHealth();
 	int GetRadius();
 	int GetID();
+	int GetSize();
 	float GetX();
 	float GetY();
 	float GetVelX();
