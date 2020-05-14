@@ -1,0 +1,3 @@
+Max Players:4
+Starting Health:5
+Port:12345
